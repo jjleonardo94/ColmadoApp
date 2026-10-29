@@ -40,7 +40,7 @@
 
         <div class="flex items-center justify-between text-xs text-slate-500 px-1 font-medium">
           <span>Conversaciones activas</span>
-          <span>{{ conversations|length }} chats</span>
+          <span id="activeChatsCounter">{{ conversations|length }} chats</span>
         </div>
       </div>
 
@@ -86,7 +86,7 @@
           </div>
         </a>
         {% empty %}
-        <div class="p-8 text-center text-slate-400 text-xs">
+        <div id="noConversationsPlaceholder" class="p-8 text-center text-slate-400 text-xs">
           No hay conversaciones activas
         </div>
         {% endfor %}
@@ -1027,22 +1027,73 @@
 
   function updateConversationsList(conversations, activeChatId) {
     const container = document.getElementById('conversationsListContainer');
-    if (!container) return;
+    if (!container || !conversations) return;
 
-    conversations.forEach(c => {
+    // Actualizar contador superior
+    const counterEl = document.getElementById('activeChatsCounter');
+    if (counterEl) {
+      counterEl.innerText = `${conversations.length} chats`;
+    }
+
+    if (conversations.length > 0) {
+      const placeholder = document.getElementById('noConversationsPlaceholder') || container.querySelector('.text-center');
+      if (placeholder) {
+        placeholder.remove();
+      }
+    }
+
+    let hasBrandNewChat = false;
+
+    // Recorremos de reversa para que al hacer prepend queden en orden exacto (el más reciente arriba)
+    for (let i = conversations.length - 1; i >= 0; i--) {
+      const c = conversations[i];
       let convLink = container.querySelector(`[data-conv-id="${c.id}"]`);
-      if (convLink) {
+      let clean = (c.last_message || 'Sin mensajes recientes').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+      let shortPreview = clean.length > 55 ? clean.substring(0, 55).trim() + '...' : clean;
+
+      if (!convLink) {
+        hasBrandNewChat = true;
+        convLink = document.createElement('a');
+        convLink.href = `?chat=${c.id}`;
+        convLink.setAttribute('data-conv-id', c.id);
+        convLink.className = `block p-3 hover:bg-slate-100/80 transition relative ${String(c.id) === String(activeChatId) ? 'bg-orange-50/60 border-l-4 border-orange-600' : ''}`;
+
+        const badgeHtml = c.has_customer
+          ? '<span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 shrink-0">Cliente</span>'
+          : '<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 shrink-0">Nuevo</span>';
+
+        const unreadBadge = (c.unread_count > 0 && String(c.id) !== String(activeChatId))
+          ? `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold mt-1">${c.unread_count}</span>`
+          : '';
+
+        convLink.innerHTML = `
+          <div class="flex items-start justify-between gap-2 overflow-hidden">
+            <div class="flex-1 min-w-0 overflow-hidden">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 text-xs truncate block max-w-full">${escapeHtml(c.name || c.phone)}</span>
+                ${badgeHtml}
+              </div>
+              <div class="text-[11px] text-slate-500 font-mono mt-0.5 truncate">${escapeHtml(c.phone)}</div>
+              <p class="conv-preview text-xs text-slate-500 truncate block w-full mt-1 whitespace-nowrap overflow-hidden text-ellipsis" title="${escapeHtml(clean)}">
+                ${escapeHtml(shortPreview)}
+              </p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <span class="conv-time text-[10px] text-slate-400 block">${escapeHtml(c.time || '')}</span>
+              <div class="conv-unread-box">${unreadBadge}</div>
+            </div>
+          </div>
+        `;
+        container.prepend(convLink);
+      } else {
         const previewP = convLink.querySelector('.conv-preview');
         if (previewP) {
-          let clean = (c.last_message || 'Sin mensajes recientes').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-          if (clean.length > 55) {
-            clean = clean.substring(0, 55).trim() + '...';
-          }
-          previewP.innerText = clean;
+          previewP.innerText = shortPreview;
           previewP.title = clean;
         }
         const timeSpan = convLink.querySelector('.conv-time');
-        if (timeSpan) timeSpan.innerText = c.time;
+        if (timeSpan && c.time) timeSpan.innerText = c.time;
+
         const badgeBox = convLink.querySelector('.conv-unread-box');
         if (badgeBox) {
           if (c.unread_count > 0 && String(c.id) !== String(activeChatId)) {
@@ -1051,8 +1102,21 @@
             badgeBox.innerHTML = '';
           }
         }
+        // Si es el chat con actividad más reciente y no está de primero, moverlo arriba
+        if (i === 0 && container.firstElementChild !== convLink) {
+          container.prepend(convLink);
+        }
       }
-    });
+    }
+
+    if (hasBrandNewChat) {
+      if (typeof playWhatsAppChime === 'function') {
+        playWhatsAppChime();
+      }
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
   }
 
   let isPollingWhatsApp = false;
