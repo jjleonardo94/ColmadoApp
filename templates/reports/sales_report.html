@@ -1,0 +1,683 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Reporte Profesional de Ventas - ColmadoPOS{% endblock %}
+
+{% block extra_css %}
+<style>
+@media print {
+    /* Hide navigation, sidebar, filter panel, export buttons, and pagination when printing */
+    aside, header, #sidebar, #topbar, .no-print, #filterPanel, #chartSection, .action-buttons, footer {
+        display: none !important;
+    }
+    body {
+        background: white !important;
+        font-size: 11pt !important;
+        color: #000 !important;
+    }
+    .print-only {
+        display: block !important;
+    }
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    th, td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 6px 8px !important;
+    }
+}
+.print-only {
+    display: none;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Header / Top Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm no-print">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="p-2 bg-orange-100 text-orange-600 rounded-xl">
+                    <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+                </span>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Reporte Profesional de Ventas</h1>
+                    <p class="text-xs text-slate-500">Métricas analíticas, desglose de métodos de pago, filtros avanzados y exportaciones contables</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Botón Exportar CSV -->
+            <a href="{% url 'export_sales_csv' %}?{{ request.GET.urlencode }}" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs">
+                <i data-lucide="file-text" class="w-4 h-4 text-slate-500"></i>
+                <span>Exportar CSV</span>
+            </a>
+
+            <!-- Botón Exportar Excel -->
+            <a href="{% url 'export_sales_excel' %}?{{ request.GET.urlencode }}" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                <span>Exportar Excel</span>
+            </a>
+
+            <!-- Botón Imprimir -->
+            <button type="button" onclick="window.print()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span>Imprimir Reporte</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Print Header (Visible only when printed) -->
+    <div class="print-only mb-6">
+        <h1 class="text-2xl font-bold text-slate-900">COLMADO POS - REPORTE DE VENTAS</h1>
+        <p class="text-sm text-slate-600">Período: {{ date_from }} al {{ date_to }} | Generado el: {% now "d/m/Y h:i A" %}</p>
+        <hr class="my-3 border-slate-300">
+    </div>
+
+    <!-- 1. RESUMEN GENERAL / KPI CARDS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <!-- Total Vendido -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between col-span-2 md:col-span-2">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Total Vendido</span>
+                <span class="p-1.5 bg-orange-50 text-orange-600 rounded-lg"><i data-lucide="dollar-sign" class="w-4 h-4"></i></span>
+            </div>
+            <div class="mt-2">
+                <h3 class="text-2xl font-black text-slate-900">RD$ {{ total_sold|floatformat:2|intcomma }}</h3>
+                <div class="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                    <span><strong>{{ sales_count }}</strong> ventas</span>
+                    <span>•</span>
+                    <span>Promedio: <strong>RD$ {{ avg_sale|floatformat:2|intcomma }}</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ventas Contado -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Ventas Contado</span>
+                <span class="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><i data-lucide="banknote" class="w-4 h-4"></i></span>
+            </div>
+            <div class="mt-2">
+                <h3 class="text-lg font-extrabold text-emerald-700">RD$ {{ total_contado|floatformat:2|intcomma }}</h3>
+                <span class="text-[10px] text-slate-400">Efectivo, Transf, Tarjetas</span>
+            </div>
+        </div>
+
+        <!-- Ventas Crédito -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Ventas Crédito</span>
+                <span class="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><i data-lucide="clock" class="w-4 h-4"></i></span>
+            </div>
+            <div class="mt-2">
+                <h3 class="text-lg font-extrabold text-amber-700">RD$ {{ total_credito|floatformat:2|intcomma }}</h3>
+                <span class="text-[10px] text-slate-400">Cuentas por Cobrar (Pendiente)</span>
+            </div>
+        </div>
+
+        <!-- Abonos CxC Recibidos (Separados) -->
+        <div class="bg-white p-4 rounded-2xl border border-blue-200 bg-blue-50/20 shadow-xs flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase text-blue-600 tracking-wider">Abonos CxC</span>
+                <span class="p-1.5 bg-blue-100 text-blue-700 rounded-lg"><i data-lucide="hand-coins" class="w-4 h-4"></i></span>
+            </div>
+            <div class="mt-2">
+                <h3 class="text-lg font-extrabold text-blue-700">RD$ {{ total_abonos|floatformat:2|intcomma }}</h3>
+                <span class="text-[10px] text-blue-500 font-medium">Cobros de cuentas viejas</span>
+            </div>
+        </div>
+
+        <!-- Descuentos Otorgados -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Descuentos</span>
+                <span class="p-1.5 bg-purple-50 text-purple-600 rounded-lg"><i data-lucide="tag" class="w-4 h-4"></i></span>
+            </div>
+            <div class="mt-2">
+                <h3 class="text-lg font-extrabold text-purple-700">RD$ {{ total_discounts|floatformat:2|intcomma }}</h3>
+                <span class="text-[10px] text-slate-400">Rebajas concedidas</span>
+            </div>
+        </div>
+
+        <!-- Anulaciones -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Anuladas</span>
+                <span class="p-1.5 bg-rose-50 text-rose-600 rounded-lg"><i data-lucide="alert-octagon" class="w-4 h-4"></i></span>
+            </div>
+            <div class="mt-2">
+                <h3 class="text-lg font-extrabold text-rose-700">RD$ {{ total_anuladas|floatformat:2|intcomma }}</h3>
+                <span class="text-[10px] text-rose-500 font-medium">{{ voided_count }} canceladas</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Desglose Secundario: Métodos de Pago & Canales de Venta -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs no-print">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <h4 class="font-bold text-slate-800 mb-2 flex items-center gap-1.5">
+                <i data-lucide="credit-card" class="w-4 h-4 text-slate-500"></i>
+                <span>Desglose por Métodos de Pago (Ventas + Abonos)</span>
+            </h4>
+            <div class="grid grid-cols-3 gap-2">
+                <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                    <span class="text-[10px] text-slate-500 font-semibold block">Efectivo Total</span>
+                    <span class="font-bold text-slate-900 text-sm">RD$ {{ dinero_efectivo_total|floatformat:2|intcomma }}</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">(Vtas: {{ efectivo_ventas|floatformat:0 }} | Abonos: {{ abonos_efectivo|floatformat:0 }})</span>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                    <span class="text-[10px] text-slate-500 font-semibold block">Transferencias</span>
+                    <span class="font-bold text-slate-900 text-sm">RD$ {{ transferencia_ventas|add:abonos_transf|floatformat:2|intcomma }}</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">(Vtas: {{ transferencia_ventas|floatformat:0 }} | Abonos: {{ abonos_transf|floatformat:0 }})</span>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                    <span class="text-[10px] text-slate-500 font-semibold block">Tarjetas POS</span>
+                    <span class="font-bold text-slate-900 text-sm">RD$ {{ tarjeta_ventas|add:abonos_tarjeta|floatformat:2|intcomma }}</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">(Vtas: {{ tarjeta_ventas|floatformat:0 }} | Abonos: {{ abonos_tarjeta|floatformat:0 }})</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <h4 class="font-bold text-slate-800 mb-2 flex items-center gap-1.5">
+                <i data-lucide="store" class="w-4 h-4 text-slate-500"></i>
+                <span>Ventas por Canal / Origen</span>
+            </h4>
+            <div class="grid grid-cols-3 gap-2">
+                <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                    <span class="text-[10px] text-slate-500 font-semibold block">Mostrador (POS)</span>
+                    <span class="font-bold text-slate-900 text-sm">RD$ {{ origen_pos|floatformat:2|intcomma }}</span>
+                </div>
+                <div class="p-2.5 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                    <span class="text-[10px] text-emerald-700 font-semibold block">WhatsApp Directo</span>
+                    <span class="font-bold text-emerald-800 text-sm">RD$ {{ origen_wa|floatformat:2|intcomma }}</span>
+                </div>
+                <div class="p-2.5 bg-blue-50/50 rounded-lg border border-blue-100">
+                    <span class="text-[10px] text-blue-700 font-semibold block">Delivery Express</span>
+                    <span class="font-bold text-blue-800 text-sm">RD$ {{ origen_del|floatformat:2|intcomma }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. PANEL DE FILTROS AVANZADOS -->
+    <div id="filterPanel" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm no-print">
+        <div class="flex items-center justify-between border-b pb-3 mb-4">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <i data-lucide="filter" class="w-4 h-4 text-orange-600"></i>
+                <span>Filtros Múltiples Combinados</span>
+            </h3>
+            <!-- Quick Date shortcuts -->
+            <div class="flex items-center gap-1.5 text-xs">
+                <span class="text-slate-400 font-medium mr-1 hidden sm:inline">Período rápido:</span>
+                <button type="button" onclick="setDateRange('today')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium">Hoy</button>
+                <button type="button" onclick="setDateRange('yesterday')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium">Ayer</button>
+                <button type="button" onclick="setDateRange('this_month')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium">Este Mes</button>
+            </div>
+        </div>
+
+        <form method="GET" id="reportFilterForm" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 text-xs">
+            <!-- Fecha Desde -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Fecha Desde</label>
+                <input type="date" name="desde" id="filterDesde" value="{{ date_from }}" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+            </div>
+
+            <!-- Fecha Hasta -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Fecha Hasta</label>
+                <input type="date" name="hasta" id="filterHasta" value="{{ date_to }}" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+            </div>
+
+            <!-- Cliente -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Cliente</label>
+                <select name="cliente" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+                    <option value="">-- Todos los Clientes --</option>
+                    {% for c in customers %}
+                    <option value="{{ c.id }}" {% if selected_cliente == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Cajero / Usuario -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Cajero / Usuario</label>
+                <select name="usuario" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+                    <option value="">-- Todos los Usuarios --</option>
+                    {% for u in cashiers %}
+                    <option value="{{ u.id }}" {% if selected_usuario == u.id|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Método de Pago -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Método de Pago</label>
+                <select name="metodo" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+                    <option value="">-- Todos los Métodos --</option>
+                    <option value="EFECTIVO" {% if selected_metodo == 'EFECTIVO' %}selected{% endif %}>Efectivo</option>
+                    <option value="TRANSFERENCIA" {% if selected_metodo == 'TRANSFERENCIA' %}selected{% endif %}>Transferencia</option>
+                    <option value="TARJETA" {% if selected_metodo == 'TARJETA' %}selected{% endif %}>Tarjeta</option>
+                    <option value="FIADO" {% if selected_metodo == 'FIADO' %}selected{% endif %}>Crédito</option>
+                </select>
+            </div>
+
+            <!-- Tipo de Operación -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Tipo de Operación</label>
+                <select name="tipo" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+                    <option value="">-- Contado y Crédito --</option>
+                    <option value="CONTADO" {% if selected_tipo == 'CONTADO' %}selected{% endif %}>Solo Contado</option>
+                    <option value="CREDITO" {% if selected_tipo == 'CREDITO' %}selected{% endif %}>Solo Crédito</option>
+                </select>
+            </div>
+
+            <!-- Canal / Origen -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Canal de Venta</label>
+                <select name="origen" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+                    <option value="">-- Todos los Canales --</option>
+                    <option value="POS" {% if selected_origen == 'POS' %}selected{% endif %}>Punto de Venta (Mostrador)</option>
+                    <option value="WHATSAPP" {% if selected_origen == 'WHATSAPP' %}selected{% endif %}>WhatsApp Chat</option>
+                    <option value="DELIVERY" {% if selected_origen == 'DELIVERY' %}selected{% endif %}>Delivery Express</option>
+                </select>
+            </div>
+
+            <!-- Estado de la Venta -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Estado</label>
+                <select name="estado" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+                    <option value="">-- Todos los Estados --</option>
+                    <option value="COMPLETADA" {% if selected_estado == 'COMPLETADA' %}selected{% endif %}>Completada</option>
+                    <option value="ANULADA" {% if selected_estado == 'ANULADA' %}selected{% endif %}>Anulada</option>
+                </select>
+            </div>
+
+            <!-- Producto -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Producto Específico</label>
+                <select name="producto" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+                    <option value="">-- Cualquier Producto --</option>
+                    {% for p in products %}
+                    <option value="{{ p.id }}" {% if selected_producto == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Búsqueda Libre -->
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Búsqueda rápida</label>
+                <input type="text" name="q" value="{{ search_q }}" placeholder="No. ticket o cliente..." class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:border-orange-500 focus:outline-none bg-slate-50">
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="sm:col-span-2 md:col-span-4 lg:col-span-5 flex items-center justify-end gap-2 pt-2 border-t mt-1">
+                <a href="{% url 'sales_report' %}" class="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-600 rounded-xl font-semibold transition-all">
+                    Limpiar Filtros
+                </a>
+                <button type="submit" class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition-all">
+                    <i data-lucide="filter" class="w-4 h-4"></i>
+                    <span>Aplicar Filtros</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 3. ANÁLISIS VISUAL Y GRÁFICOS (Chart.js) -->
+    <div id="chartSection" class="grid grid-cols-1 lg:grid-cols-3 gap-5 no-print">
+        <!-- Gráfico: Ventas por Día -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
+            <h3 class="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
+                <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i>
+                <span>Evolución de Ventas en el Período</span>
+            </h3>
+            <div class="h-64">
+                <canvas id="salesTimelineChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Gráfico: Top Productos -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+                <h3 class="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
+                    <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i>
+                    <span>Top 5 Productos Más Vendidos</span>
+                </h3>
+                <div class="h-64">
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. TABLA DETALLADA DE VENTAS -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <i data-lucide="receipt" class="w-4 h-4 text-orange-600"></i>
+                <span>Detalle de Transacciones ({{ sales|length }} encontradas)</span>
+            </h3>
+            <span class="text-xs text-slate-400">Haga clic en cualquier fila o en "Artículos" para ver el desglose</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                        <th class="p-3.5">Ticket</th>
+                        <th class="p-3.5">Fecha y Hora</th>
+                        <th class="p-3.5">Cliente</th>
+                        <th class="p-3.5">Cajero</th>
+                        <th class="p-3.5">Canal</th>
+                        <th class="p-3.5">Método</th>
+                        <th class="p-3.5">Tipo</th>
+                        <th class="p-3.5 text-right">Subtotal</th>
+                        <th class="p-3.5 text-right">Descuento</th>
+                        <th class="p-3.5 text-right">Total RD$</th>
+                        <th class="p-3.5 text-center">Estado</th>
+                        <th class="p-3.5 text-center no-print">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for sale in sales %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-3.5 font-mono font-bold text-slate-900">
+                            #{{ sale.ticket_number }}
+                        </td>
+                        <td class="p-3.5 text-slate-600 whitespace-nowrap">
+                            <span class="font-medium text-slate-800">{{ sale.created_at|date:"d/m/Y" }}</span>
+                            <span class="text-slate-400 text-[10px] ml-1">{{ sale.created_at|date:"h:i A" }}</span>
+                        </td>
+                        <td class="p-3.5">
+                            {% if sale.customer %}
+                            <a href="{% url 'customer_detail' sale.customer.id %}" class="font-bold text-slate-900 hover:text-orange-600 transition-colors">
+                                {{ sale.customer.name }}
+                            </a>
+                            {% else %}
+                            <span class="text-slate-400 italic">Consumidor Final</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-slate-600">{{ sale.cashier.username }}</td>
+                        <td class="p-3.5">
+                            {% if sale.origin == 'WHATSAPP' %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                                <i data-lucide="message-circle" class="w-3 h-3"></i> WhatsApp
+                            </span>
+                            {% elif sale.origin == 'DELIVERY' %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1">
+                                <i data-lucide="bike" class="w-3 h-3"></i> Delivery
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">POS</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-800">
+                                {{ sale.get_payment_method_display }}
+                            </span>
+                        </td>
+                        <td class="p-3.5">
+                            {% if sale.payment_method == 'FIADO' %}
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Crédito</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700">Contado</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-right font-mono text-slate-600">RD$ {{ sale.subtotal|floatformat:2|intcomma }}</td>
+                        <td class="p-3.5 text-right font-mono text-purple-600">
+                            {% if sale.discount > 0 %}-RD$ {{ sale.discount|floatformat:2|intcomma }}{% else %}-{% endif %}
+                        </td>
+                        <td class="p-3.5 text-right font-mono font-black text-slate-900 text-sm">
+                            RD$ {{ sale.total|floatformat:2|intcomma }}
+                        </td>
+                        <td class="p-3.5 text-center">
+                            {% if sale.status == 'COMPLETADA' %}
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Completada</span>
+                            {% elif sale.status == 'ANULADA' %}
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200" title="{{ sale.void_reason|default:'Sin motivo' }}">Anulada</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700">{{ sale.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-center no-print">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <button type="button" onclick="showSaleDetailModal('{{ sale.ticket_number }}', '{{ sale.created_at|date:"d/m/Y h:i A" }}', '{{ sale.customer.name|default:"Consumidor Final"|escapejs }}', '{{ sale.total|floatformat:2 }}', '{{ sale.get_payment_method_display }}', '{{ sale.cashier.username }}', saleItems_{{ sale.id }})" class="p-1.5 text-slate-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors" title="Ver Artículos">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                                <a href="{% url 'sale_receipt' sale.ticket_number %}" target="_blank" class="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors" title="Imprimir Ticket">
+                                    <i data-lucide="printer" class="w-4 h-4"></i>
+                                </a>
+                            </div>
+
+                            <!-- Script con datos de artículos para el modal -->
+                            <script>
+                                var saleItems_{{ sale.id }} = [
+                                    {% for it in sale.items.all %}
+                                    {
+                                        product: "{{ it.product.name|escapejs }}",
+                                        qty: "{{ it.quantity|floatformat:-2 }}",
+                                        price: "{{ it.unit_price|floatformat:2 }}",
+                                        subtotal: "{{ it.subtotal|floatformat:2 }}"
+                                    },
+                                    {% endfor %}
+                                ];
+                            </script>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="12" class="text-center py-12 text-slate-400">
+                            No se encontraron ventas que coincidan con los filtros seleccionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAL: DETALLE DE ARTÍCULOS DE VENTA ================= -->
+<div id="saleDetailModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div>
+                <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                    <i data-lucide="receipt" class="w-5 h-5 text-orange-600"></i>
+                    <span id="modalTicketTitle">Ticket #</span>
+                </h3>
+                <span id="modalTicketSub" class="text-xs text-slate-400">Fecha y hora</span>
+            </div>
+            <button type="button" onclick="closeSaleDetailModal()" class="text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <div>
+                <span class="text-slate-400 block text-[10px]">Cliente:</span>
+                <strong id="modalCustomerName" class="text-slate-800">-</strong>
+            </div>
+            <div>
+                <span class="text-slate-400 block text-[10px]">Método de Pago:</span>
+                <strong id="modalPaymentMethod" class="text-slate-800">-</strong>
+            </div>
+            <div>
+                <span class="text-slate-400 block text-[10px]">Cajero Responsable:</span>
+                <strong id="modalCashier" class="text-slate-800">-</strong>
+            </div>
+            <div>
+                <span class="text-slate-400 block text-[10px]">Importe Total:</span>
+                <strong id="modalTotalAmount" class="text-emerald-700 font-black text-sm">RD$ 0.00</strong>
+            </div>
+        </div>
+
+        <div>
+            <h4 class="font-bold text-slate-800 text-xs mb-2 uppercase tracking-wider">Productos Vendidos</h4>
+            <div class="max-h-56 overflow-y-auto border border-slate-100 rounded-xl">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                        <tr>
+                            <th class="p-2.5">Producto</th>
+                            <th class="p-2.5 text-center">Cant.</th>
+                            <th class="p-2.5 text-right">Precio</th>
+                            <th class="p-2.5 text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalItemsTbody" class="divide-y divide-slate-100 text-slate-700">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onclick="closeSaleDetailModal()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">Cerrar</button>
+            <a id="modalPrintLink" href="#" target="_blank" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span>Imprimir Ticket</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Inicialización de Gráficos con Chart.js
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Gráfico de Evolución de Ventas
+        const daysLabels = {{ chart_days_labels_json|safe }};
+        const daysValues = {{ chart_days_values_json|safe }};
+
+        const ctxTimeline = document.getElementById('salesTimelineChart');
+        if (ctxTimeline && daysLabels.length > 0) {
+            new Chart(ctxTimeline, {
+                type: 'line',
+                data: {
+                    labels: daysLabels,
+                    datasets: [{
+                        label: 'Ventas Totales (RD$)',
+                        data: daysValues,
+                        borderColor: '#ea580c',
+                        backgroundColor: 'rgba(234, 88, 12, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#ea580c',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) { return 'RD$ ' + value.toLocaleString(); }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // 2. Gráfico de Top Productos
+        const prodLabels = {{ top_products_labels_json|safe }};
+        const prodQuantities = {{ top_products_quantities_json|safe }};
+
+        const ctxProducts = document.getElementById('topProductsChart');
+        if (ctxProducts && prodLabels.length > 0) {
+            new Chart(ctxProducts, {
+                type: 'bar',
+                data: {
+                    labels: prodLabels,
+                    datasets: [{
+                        label: 'Unidades Vendidas',
+                        data: prodQuantities,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    });
+
+    // Accesos rápidos de fecha
+    function setDateRange(range) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+
+        let desde = `${yyyy}-${mm}-${dd}`;
+        let hasta = `${yyyy}-${mm}-${dd}`;
+
+        if (range === 'yesterday') {
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1);
+            const y_yyyy = yesterday.getFullYear();
+            const y_mm = String(yesterday.getMonth() + 1).padStart(2, '0');
+            const y_dd = String(yesterday.getDate()).padStart(2, '0');
+            desde = `${y_yyyy}-${y_mm}-${y_dd}`;
+            hasta = desde;
+        } else if (range === 'this_month') {
+            desde = `${yyyy}-${mm}-01`;
+            hasta = `${yyyy}-${mm}-${dd}`;
+        }
+
+        document.getElementById('filterDesde').value = desde;
+        document.getElementById('filterHasta').value = hasta;
+        document.getElementById('reportFilterForm').submit();
+    }
+
+    // Modal de Detalle de Venta
+    function showSaleDetailModal(ticket, datetime, customer, total, method, cashier, items) {
+        document.getElementById('modalTicketTitle').textContent = 'Ticket #' + ticket;
+        document.getElementById('modalTicketSub').textContent = datetime;
+        document.getElementById('modalCustomerName').textContent = customer;
+        document.getElementById('modalPaymentMethod').textContent = method;
+        document.getElementById('modalCashier').textContent = cashier;
+        document.getElementById('modalTotalAmount').textContent = 'RD$ ' + parseFloat(total).toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('modalPrintLink').href = '/ventas/ticket/' + ticket + '/';
+
+        const tbody = document.getElementById('modalItemsTbody');
+        tbody.innerHTML = '';
+        if (items && items.length > 0) {
+            items.forEach(function(item) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-2.5 font-medium text-slate-800">${item.product}</td>
+                    <td class="p-2.5 text-center font-bold">${item.qty}</td>
+                    <td class="p-2.5 text-right font-mono">RD$ ${item.price}</td>
+                    <td class="p-2.5 text-right font-mono font-bold">RD$ ${item.subtotal}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">Sin detalle de artículos</td></tr>';
+        }
+
+        document.getElementById('saleDetailModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function closeSaleDetailModal() {
+        document.getElementById('saleDetailModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}

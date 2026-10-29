@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Compras y Cuentas por Pagar{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Gestión de Compras & Suplidores</h2>
+            <p class="text-sm text-slate-500">Registro de facturas de suplidores, recepción de mercancía y actualización de inventario</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="{% url 'supplier_list' %}" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors">
+                <i data-lucide="building-2" class="w-4 h-4 text-slate-500"></i>
+                <span>Suplidores</span>
+            </a>
+            <a href="{% url 'purchase_create' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>Nueva Compra</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Purchases Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                        <th class="p-3.5">ID / Fecha</th>
+                        <th class="p-3.5">Suplidor</th>
+                        <th class="p-3.5">No. Factura</th>
+                        <th class="p-3.5 text-right">Subtotal</th>
+                        <th class="p-3.5 text-right">Total Factura</th>
+                        <th class="p-3.5 text-center">Estado Recepción</th>
+                        <th class="p-3.5 text-center">Estado Pago</th>
+                        <th class="p-3.5 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for p in purchases %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-3.5">
+                            <span class="font-bold text-slate-900 block font-mono">#{{ p.id }}</span>
+                            <span class="text-[10px] text-slate-400">{{ p.purchase_date|date:"d/m/Y" }}</span>
+                        </td>
+                        <td class="p-3.5 font-bold text-slate-900">{{ p.supplier.name }}</td>
+                        <td class="p-3.5 font-mono text-slate-600">{{ p.invoice_number|default:"S/N" }}</td>
+                        <td class="p-3.5 text-right font-medium text-slate-600">RD$ {{ p.subtotal|floatformat:2|intcomma }}</td>
+                        <td class="p-3.5 text-right font-extrabold text-slate-900">RD$ {{ p.total|floatformat:2|intcomma }}</td>
+                        <td class="p-3.5 text-center">
+                            {% if p.status == 'RECIBIDA' %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">Recibida (En Stock)</span>
+                            {% elif p.status == 'BORRADOR' %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700">Borrador</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700">Anulada</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-center">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold
+                                {% if p.payment_status == 'PAGADA' %}bg-slate-100 text-slate-800
+                                {% elif p.payment_status == 'PARCIAL' %}bg-blue-50 text-blue-700
+                                {% else %}bg-rose-50 text-rose-700{% endif %}">
+                                {{ p.get_payment_status_display }}
+                            </span>
+                        </td>
+                        <td class="p-3.5 text-center">
+                            {% if p.status == 'BORRADOR' %}
+                            <form method="POST" action="{% url 'purchase_receive' p.id %}" onsubmit="return confirmSubmit(event, '¿Confirmar recepción de mercancía? Se aumentará el stock automáticamente.', '¿Recibir mercancía?');">
+                                {% csrf_token %}
+                                <button type="submit" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold shadow-xs">
+                                    Recibir
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="text-[10px] text-slate-400">Recibida por {{ p.received_by.username|default:"Admin" }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-12 text-slate-400">No se encontraron compras registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

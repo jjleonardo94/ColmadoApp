@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Productos y Catálogo{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Catálogo de Productos</h2>
+            <p class="text-sm text-slate-500">Administre artículos, precios, existencias y unidades de venta</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="{% url 'category_list' %}" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors">
+                <i data-lucide="tags" class="w-4 h-4 text-slate-500"></i>
+                <span>Categorías</span>
+            </a>
+            <a href="{% url 'product_create' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all hover:shadow">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Nuevo Producto</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+        <form method="GET" class="flex flex-wrap items-center gap-2 flex-1">
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Buscar por nombre, código o barra..."
+                   class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-orange-500 w-64 bg-slate-50">
+
+            <select name="categoria" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-orange-500 bg-slate-50">
+                <option value="">Todas las Categorías</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}" {% if selected_cat == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="stock" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-orange-500 bg-slate-50">
+                <option value="">Cualquier Existencia</option>
+                <option value="bajo" {% if stock_filter == 'bajo' %}selected{% endif %}>Stock Mínimo (Alerta)</option>
+                <option value="agotado" {% if stock_filter == 'agotado' %}selected{% endif %}>Agotados</option>
+            </select>
+
+            <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+                <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                <span>Filtrar</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Products Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                        <th class="p-3.5">Código</th>
+                        <th class="p-3.5">Producto</th>
+                        <th class="p-3.5">Categoría</th>
+                        <th class="p-3.5">Tipo Venta</th>
+                        <th class="p-3.5 text-right">Costo</th>
+                        <th class="p-3.5 text-right">Precio Venta</th>
+                        <th class="p-3.5 text-right">Existencia</th>
+                        <th class="p-3.5 text-center">Estado</th>
+                        <th class="p-3.5 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for p in products %}
+                    <tr class="hover:bg-slate-50 transition-colors {% if not p.is_active %}opacity-50 bg-slate-50/50{% endif %}">
+                        <td class="p-3.5 font-mono text-slate-600">
+                            {{ p.internal_code }}
+                            {% if p.barcode %}
+                            <span class="block text-[10px] text-slate-400 font-mono">{{ p.barcode }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5">
+                            <span class="font-bold text-slate-900 block">{{ p.name }}</span>
+                            {% if p.supplier %}
+                            <span class="text-[10px] text-slate-400">Suplidor: {{ p.supplier.name }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
+                                {{ p.category.name }}
+                            </span>
+                        </td>
+                        <td class="p-3.5">
+                            <span class="text-slate-600 font-medium">{{ p.get_unit_of_measure_display }}</span>
+                            <span class="block text-[10px] text-slate-400">{{ p.get_sale_type_display }}</span>
+                        </td>
+                        <td class="p-3.5 text-right font-medium text-slate-600">RD$ {{ p.cost_price|floatformat:2|intcomma }}</td>
+                        <td class="p-3.5 text-right font-bold text-orange-600 text-sm">RD$ {{ p.sale_price|floatformat:2|intcomma }}</td>
+                        <td class="p-3.5 text-right">
+                            <span class="font-bold {% if p.is_out_of_stock %}text-rose-600{% elif p.is_low_stock %}text-amber-600{% else %}text-slate-900{% endif %}">
+                                {{ p.current_stock|floatformat:2 }}
+                            </span>
+                            {% if p.is_out_of_stock %}
+                            <span class="block text-[10px] font-bold text-rose-600">Agotado</span>
+                            {% elif p.is_low_stock %}
+                            <span class="block text-[10px] font-bold text-amber-600">Stock Mínimo</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-center">
+                            {% if p.is_active %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">Activo</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-center">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <a href="{% url 'product_update' p.id %}" class="p-1.5 text-slate-500 hover:text-orange-600 rounded hover:bg-slate-100" title="Editar Producto">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </a>
+                                <form method="POST" action="{% url 'product_toggle_active' p.id %}" onsubmit="return confirmSubmit(event, '¿Desea cambiar el estado de este producto?', '¿Cambiar estado?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="p-1.5 text-slate-400 hover:text-slate-800 rounded hover:bg-slate-100" title="{% if p.is_active %}Desactivar{% else %}Activar{% endif %}">
+                                        <i data-lucide="power" class="w-4 h-4"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-12 text-slate-400">
+                            No se encontraron productos registrados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

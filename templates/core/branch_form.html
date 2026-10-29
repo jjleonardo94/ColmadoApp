@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Editar Colmado / Sucursal{% else %}Nuevo Colmado / Sucursal{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <a href="{% url 'branch_list' %}" class="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 px-3 py-2 border rounded-xl hover:bg-slate-50 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Volver a Sucursales</span>
+        </a>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div class="border-b border-slate-100 pb-4 mb-6">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <i data-lucide="store" class="w-5 h-5 text-orange-600"></i>
+                <span>{% if object %}Editar Datos del Colmado{% else %}Registrar Nuevo Colmado / Sucursal{% endif %}</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">Configure los datos de identificación, contacto y estado de la sucursal</p>
+        </div>
+
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre del Colmado / Negocio *</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<p class="text-xs text-rose-600 mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Código / Siglas *</label>
+                    {{ form.code }}
+                    {% if form.code.errors %}<p class="text-xs text-rose-600 mt-1">{{ form.code.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Teléfono / WhatsApp</label>
+                    {{ form.phone }}
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">RNC o Cédula Fiscal</label>
+                    {{ form.rnc }}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Dirección Física</label>
+                    {{ form.address }}
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Sector / Ciudad</label>
+                    {{ form.city }}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Encargado / Administrador Asignado</label>
+                {{ form.manager_name }}
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
+                <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    {{ form.is_main }}
+                    <span>Marcar como Sucursal Principal (Matriz)</span>
+                </label>
+                <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    {{ form.is_active }}
+                    <span>Sucursal Activa y Operativa</span>
+                </label>
+            </div>
+
+            <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                <a href="{% url 'branch_list' %}" class="px-4 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-800 border rounded-xl hover:bg-slate-50 transition-colors">
+                    Cancelar
+                </a>
+                <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all hover:shadow">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    <span>{% if object %}Guardar Cambios{% else %}Registrar Colmado{% endif %}</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

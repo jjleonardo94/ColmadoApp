@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Créditos & Cuentas por Cobrar (CxC){% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <i data-lucide="book-open-check" class="w-6 h-6 text-emerald-600"></i>
+                <span>Créditos & Cuentas por Cobrar (CxC)</span>
+            </h2>
+            <p class="text-sm text-slate-500">Controle cuentas por cobrar, límites de crédito, pagos, abonos inmediatos y estados de cuenta</p>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+            <button type="button" onclick="openGlobalAbono()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                <i data-lucide="hand-coins" class="w-4 h-4"></i>
+                <span>Registrar Abono</span>
+            </button>
+            <a href="{% url 'customer_create' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                <span>Nuevo Cliente</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+        <form method="GET" class="flex flex-wrap items-center gap-2 flex-1">
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Buscar por nombre, teléfono o cédula..."
+                   class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-orange-500 w-64 bg-slate-50">
+
+            <select name="deuda" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-orange-500 bg-slate-50">
+                <option value="">Todos los Clientes</option>
+                <option value="con_deuda" {% if filtro_deuda == 'con_deuda' %}selected{% endif %}>Con Deuda Pendiente</option>
+                <option value="sin_deuda" {% if filtro_deuda == 'sin_deuda' %}selected{% endif %}>Al Día / Sin Deuda</option>
+            </select>
+
+            <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+                <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                <span>Filtrar</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Customers Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                        <th class="p-3.5">Cliente</th>
+                        <th class="p-3.5">Teléfono / WhatsApp</th>
+                        <th class="p-3.5">Identificación</th>
+                        <th class="p-3.5 text-right">Límite Autorizado</th>
+                        <th class="p-3.5 text-right">Saldo Deudor</th>
+                        <th class="p-3.5 text-right">Disponible</th>
+                        <th class="p-3.5 text-center">Estado</th>
+                        <th class="p-3.5 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for c in customers %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-3.5">
+                            <a href="{% url 'customer_detail' c.id %}" class="font-bold text-slate-900 hover:text-orange-600 transition-colors flex items-center gap-1.5">
+                                <i data-lucide="user" class="w-4 h-4 text-slate-400"></i>
+                                <span>{{ c.name }}</span>
+                            </a>
+                            {% if c.address %}
+                            <span class="block text-[10px] text-slate-400 truncate max-w-xs pl-5">{{ c.address }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 font-mono text-slate-600">
+                            {{ c.phone|default:"-" }}
+                        </td>
+                        <td class="p-3.5 text-slate-500">{{ c.identification|default:"-" }}</td>
+                        <td class="p-3.5 text-right font-medium text-slate-700">RD$ {{ c.credit_limit|floatformat:2|intcomma }}</td>
+                        <td class="p-3.5 text-right font-bold text-sm {% if c.current_balance > 0 %}text-rose-600{% else %}text-emerald-600{% endif %}">
+                            RD$ {{ c.current_balance|floatformat:2|intcomma }}
+                        </td>
+                        <td class="p-3.5 text-right font-medium text-slate-600">RD$ {{ c.available_credit|floatformat:2|intcomma }}</td>
+                        <td class="p-3.5 text-center">
+                            {% if c.current_balance > 0 %}
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Deuda Activa</span>
+                            {% else %}
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Al Día</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <!-- BOTÓN DE ABONAR (SIEMPRE VISIBLE) -->
+                                <button type="button" onclick="openQuickAbono('{{ c.id }}', '{{ c.name|escapejs }}', '{{ c.current_balance }}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all hover:scale-105" title="Registrar abono o pago a este cliente">
+                                    <i data-lucide="hand-coins" class="w-3.5 h-3.5"></i>
+                                    <span>Abonar</span>
+                                </button>
+
+                                <!-- BOTÓN DE HISTORIAL Y CRÉDITO (SIEMPRE VISIBLE) -->
+                                <a href="{% url 'customer_detail' c.id %}" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all hover:scale-105" title="Ver Historial Completo de Créditos y Abonos">
+                                    <i data-lucide="book-open" class="w-3.5 h-3.5 text-blue-600"></i>
+                                    <span>Historial de Créditos</span>
+                                </a>
+
+                                <a href="{% url 'customer_update' c.id %}" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors" title="Editar Cliente">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-12 text-slate-400">No se encontraron clientes registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAL: ABONO RÁPIDO DESDE EL LISTADO ================= -->
+<div id="quickAbonoModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                <i data-lucide="hand-coins" class="w-5 h-5 text-emerald-600"></i>
+                <span>Registrar Abono a Crédito</span>
+            </h3>
+            <button type="button" onclick="closeQuickAbono()" class="text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Selector de cliente si se abre globalmente -->
+        <div id="customerSelectorWrapper" class="hidden">
+            <label class="block font-semibold text-slate-700 mb-1 text-xs">Seleccione el Cliente *</label>
+            <select id="globalCustomerSelect" onchange="onGlobalCustomerChange(this)" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-emerald-500 bg-slate-50">
+                <option value="">-- Seleccionar Cliente --</option>
+                {% for c in customers %}
+                <option value="{{ c.id }}" data-name="{{ c.name }}" data-balance="{{ c.current_balance }}">{{ c.name }} (Deuda: RD$ {{ c.current_balance|floatformat:2|intcomma }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600">
+            <p>Cliente: <strong id="quickAbonoCustomerName" class="text-slate-900">-</strong></p>
+            <p>Deuda actual: <strong id="quickAbonoCurrentBal" class="text-rose-600">RD$ 0.00</strong></p>
+        </div>
+
+        <form id="quickAbonoForm" method="POST" action="" class="space-y-3 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Monto a Abonar (RD$) *</label>
+                <input type="number" name="amount" id="quickAbonoAmount" step="0.01" min="0.01" required placeholder="0.00" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 text-sm font-bold focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Método de Cobro *</label>
+                <select name="payment_method" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+                    <option value="EFECTIVO" selected>Efectivo (Entra a Caja)</option>
+                    <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                    <option value="TARJETA">Tarjeta de Débito/Crédito</option>
+                </select>
+                <p class="text-[10px] text-slate-400 mt-1">Si es Efectivo, se asentará automáticamente en el turno de caja abierto.</p>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Referencia o Comprobante</label>
+                <input type="text" name="reference" placeholder="Ej. Depósito #4892 o Recibo manual" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Notas u Observaciones</label>
+                <textarea name="notes" rows="2" placeholder="Observaciones adicionales del abono..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t">
+                <button type="button" onclick="closeQuickAbono()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+                <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    <span>Confirmar Abono</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openQuickAbono(customerId, customerName, balance) {
+        document.getElementById('customerSelectorWrapper').classList.add('hidden');
+        document.getElementById('quickAbonoCustomerName').textContent = customerName;
+        document.getElementById('quickAbonoCurrentBal').textContent = 'RD$ ' + parseFloat(balance).toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('quickAbonoForm').action = '/clientes/' + customerId + '/abonar/';
+        document.getElementById('quickAbonoAmount').value = '';
+        document.getElementById('quickAbonoModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function openGlobalAbono() {
+        document.getElementById('customerSelectorWrapper').classList.remove('hidden');
+        const sel = document.getElementById('globalCustomerSelect');
+        sel.selectedIndex = 0;
+        document.getElementById('quickAbonoCustomerName').textContent = 'Seleccione un cliente arriba';
+        document.getElementById('quickAbonoCurrentBal').textContent = 'RD$ 0.00';
+        document.getElementById('quickAbonoForm').action = '';
+        document.getElementById('quickAbonoAmount').value = '';
+        document.getElementById('quickAbonoModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function onGlobalCustomerChange(sel) {
+        const opt = sel.options[sel.selectedIndex];
+        if (opt && opt.value) {
+            const customerId = opt.value;
+            const name = opt.getAttribute('data-name');
+            const balance = opt.getAttribute('data-balance');
+            document.getElementById('quickAbonoCustomerName').textContent = name;
+            document.getElementById('quickAbonoCurrentBal').textContent = 'RD$ ' + parseFloat(balance).toLocaleString('es-DO', {minimumFractionDigits: 2});
+            document.getElementById('quickAbonoForm').action = '/clientes/' + customerId + '/abonar/';
+        } else {
+            document.getElementById('quickAbonoCustomerName').textContent = '-';
+            document.getElementById('quickAbonoCurrentBal').textContent = 'RD$ 0.00';
+            document.getElementById('quickAbonoForm').action = '';
+        }
+    }
+
+    function closeQuickAbono() {
+        document.getElementById('quickAbonoModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}

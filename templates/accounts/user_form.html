@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Nuevo Usuario{% else %}Editar Usuario: {{ target_user.username }}{% endif %} - ColmadoPOS{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <!-- Encabezado -->
+  <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 shadow-sm">
+        <i data-lucide="user-check" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-slate-900 tracking-tight">
+          {% if is_create %}Crear Nuevo Usuario{% else %}Editar Usuario: {{ target_user.username }}{% endif %}
+        </h1>
+        <p class="text-xs text-slate-500">Asignación de rol, colmado(s) autorizado(s) y permisos específicos</p>
+      </div>
+    </div>
+    <a href="{% url 'users_list' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition shadow-sm">
+      <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+      Volver
+    </a>
+  </div>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- 1. Datos de Acceso Básicos -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+        <i data-lucide="user" class="w-4 h-4 text-orange-600"></i>
+        Credenciales y Datos Personales
+      </h2>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre de Usuario *</label>
+          <input type="text" name="username" value="{% if is_create %}{{ request.POST.username }}{% else %}{{ target_user.username }}{% endif %}" {% if not is_create %}readonly{% endif %} required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl {% if not is_create %}bg-slate-100 text-slate-500 cursor-not-allowed{% else %}bg-white{% endif %} focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Contraseña {% if is_create %}*{% else %}(Dejar en blanco para no cambiar){% endif %}</label>
+          <input type="password" name="password" placeholder="••••••••" {% if is_create %}required{% endif %} class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre</label>
+          <input type="text" name="first_name" value="{% if is_create %}{{ request.POST.first_name }}{% else %}{{ target_user.first_name }}{% endif %}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Apellido</label>
+          <input type="text" name="last_name" value="{% if is_create %}{{ request.POST.last_name }}{% else %}{{ target_user.last_name }}{% endif %}" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Teléfono / WhatsApp</label>
+          {{ profile_form.phone }}
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Cédula de Identidad</label>
+          {{ profile_form.identification }}
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Asignación de Perfil / Rol -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="shield" class="w-4 h-4 text-orange-600"></i>
+          Perfil / Rol del Empleado
+        </h2>
+        <a href="{% url 'role_list' %}" target="_blank" class="text-xs text-orange-600 hover:underline font-medium inline-flex items-center gap-1">
+          <i data-lucide="external-link" class="w-3 h-3"></i>
+          Administrar Perfiles
+        </a>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-semibold text-slate-700">Seleccionar Perfil</label>
+        {{ profile_form.custom_role }}
+        <p class="text-xs text-slate-500">
+          El usuario hereda automáticamente todos los permisos definidos en este perfil (por ejemplo: Cajero, Encargado, Auditor, etc.).
+        </p>
+      </div>
+    </div>
+
+    <!-- 3. Asignación de Colmados / Sucursales (Aislamiento Multi-Colmado) -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+        <i data-lucide="store" class="w-4 h-4 text-emerald-600"></i>
+        Asignación de Colmado(s) y Aislamiento de Sucursales
+      </h2>
+      <p class="text-xs text-slate-500">
+        Controla qué colmados puede ver y gestionar este usuario. Si solo se asigna a un colmado, no podrá ver las ventas, clientes ni movimientos de los demás colmados.
+      </p>
+
+      <!-- Opción 1: Acceso Global -->
+      <div class="p-3.5 rounded-xl bg-orange-50/60 border border-orange-200/70">
+        <label class="flex items-start gap-3 cursor-pointer">
+          {{ profile_form.all_branches_access }}
+          <div>
+            <span class="text-xs font-bold text-slate-900">Acceso a Todos los Colmados (Dueño / Admin General)</span>
+            <span class="block text-[11px] text-slate-600">Permite ver, auditar y alternar libremente entre todos los colmados y sucursales del negocio.</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Opción 2: Sucursales específicas -->
+      <div id="specificBranchesContainer" class="space-y-2 pt-2 border-t border-slate-100">
+        <label class="block text-xs font-semibold text-slate-700">Colmados Asignados Específicamente:</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {% for choice in profile_form.assigned_branches %}
+          <div class="flex items-center gap-2.5 p-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition">
+            {{ choice.tag }}
+            <label for="{{ choice.id_for_label }}" class="text-xs font-medium text-slate-800 cursor-pointer flex-1">
+              {{ choice.choice_label }}
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="text-[11px] text-slate-400">
+          Nota: Los cajeros o dependientes solo deben tener seleccionado su colmado correspondiente.
+        </p>
+      </div>
+    </div>
+
+    <!-- 4. Sobrescritura de Permisos Individuales -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="sliders" class="w-4 h-4 text-purple-600"></i>
+          Personalización Individual de Permisos
+        </h2>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+        <label class="flex items-start gap-3 cursor-pointer">
+          {{ profile_form.override_role_permissions }}
+          <div>
+            <span class="text-xs font-bold text-slate-900">Personalizar permisos individuales para esta persona (Sobrescribir el perfil)</span>
+            <span class="block text-[11px] text-slate-600">Activa esta casilla solo si deseas otorgarle o retirarle permisos específicos que difieren del perfil general.</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Contenedor desplegable de permisos individuales -->
+      <div id="individualPermissionsContainer" class="hidden space-y-4 pt-3 border-t border-slate-100">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- POS -->
+          <div class="border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i data-lucide="shopping-cart" class="w-3.5 h-3.5 text-orange-600"></i> POS / Ventas</h3>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_access_pos }} <span>Acceso a POS</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_apply_discounts }} <span>Otorgar Descuentos</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_change_prices }} <span>Cambiar Precios en Venta</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_void_sales }} <span>Anular Ventas</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_view_sales_history }} <span>Ver Historial Ventas</span></label>
+          </div>
+
+          <!-- Fiados -->
+          <div class="border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i data-lucide="book-open-check" class="w-3.5 h-3.5 text-emerald-600"></i> Fiados & Clientes</h3>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_access_credit }} <span>Acceso a Libreta Fiados</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_authorize_credit }} <span>Aprobar Fiado / Crédito</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_record_abono }} <span>Cobrar / Registrar Abonos</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_manage_customers }} <span>Crear / Editar Clientes</span></label>
+          </div>
+
+          <!-- Inventario & Compras -->
+          <div class="border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i data-lucide="package" class="w-3.5 h-3.5 text-amber-600"></i> Inventario & Catálogo</h3>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_access_catalog }} <span>Ver Catálogo</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_edit_products }} <span>Modificar Precios / Costos</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_adjust_inventory }} <span>Ajustar Stock Manual</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_access_purchases }} <span>Compras & Suplidores</span></label>
+          </div>
+
+          <!-- Caja & Gastos -->
+          <div class="border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i data-lucide="wallet" class="w-3.5 h-3.5 text-violet-600"></i> Caja & Finanzas</h3>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_open_close_shifts }} <span>Apertura / Cuadre de Caja</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_view_cash_history }} <span>Ver Historial Arqueos</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_register_expenses }} <span>Registrar Gastos</span></label>
+          </div>
+
+          <!-- Reportes & Auditoría -->
+          <div class="border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i data-lucide="bar-chart-3" class="w-3.5 h-3.5 text-indigo-600"></i> Reportes & Auditoría</h3>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_view_reports }} <span>Ver Ganancias & Reportes</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_export_reports }} <span>Exportar a Excel / CSV</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_view_audit_log }} <span>Ver Auditoría</span></label>
+          </div>
+
+          <!-- Administración -->
+          <div class="border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i data-lucide="settings" class="w-3.5 h-3.5 text-slate-600"></i> Administración</h3>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_manage_whatsapp }} <span>WhatsApp API</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_manage_branches }} <span>Administrar Sucursales</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_manage_users }} <span>Gestionar Usuarios & Roles</span></label>
+            <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">{{ profile_form.can_manage_settings }} <span>Configuración General</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div class="flex items-center justify-end gap-3 pt-2">
+      <a href="{% url 'users_list' %}" class="px-5 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
+        Cancelar
+      </a>
+      <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-orange-600 rounded-xl hover:bg-orange-700 shadow-sm transition">
+        {% if is_create %}Guardar Usuario{% else %}Actualizar Usuario{% endif %}
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const overrideCheckbox = document.getElementById('id_override_role_permissions');
+  const individualContainer = document.getElementById('individualPermissionsContainer');
+  const allBranchesCheckbox = document.getElementById('id_all_branches_access');
+  const specificBranchesContainer = document.getElementById('specificBranchesContainer');
+
+  function updateOverrideVisibility() {
+    if (overrideCheckbox && individualContainer) {
+      if (overrideCheckbox.checked) {
+        individualContainer.classList.remove('hidden');
+      } else {
+        individualContainer.classList.add('hidden');
+      }
+    }
+  }
+
+  function updateBranchesVisibility() {
+    if (allBranchesCheckbox && specificBranchesContainer) {
+      const inputs = specificBranchesContainer.querySelectorAll('input[type="checkbox"]');
+      if (allBranchesCheckbox.checked) {
+        specificBranchesContainer.classList.add('opacity-50', 'pointer-events-none');
+      } else {
+        specificBranchesContainer.classList.remove('opacity-50', 'pointer-events-none');
+      }
+    }
+  }
+
+  if (overrideCheckbox) {
+    overrideCheckbox.addEventListener('change', updateOverrideVisibility);
+    updateOverrideVisibility();
+  }
+
+  if (allBranchesCheckbox) {
+    allBranchesCheckbox.addEventListener('change', updateBranchesVisibility);
+    updateBranchesVisibility();
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Repartidores & Delivery{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div>
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <i data-lucide="bike" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Repartidores / Delivery</h1>
+                    <p class="text-xs text-slate-500">Gestión de personal de entrega para Delivery Express y pedidos de WhatsApp</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button type="button" onclick="openNewModal()" class="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all hover:shadow">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Nuevo Repartidor</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <form method="get" class="w-full sm:w-96 flex items-center relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5"></i>
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Buscar por nombre, teléfono o placa..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500">
+        </form>
+
+        <div class="text-xs font-medium text-slate-500">
+            Total Repartidores: <strong class="text-slate-900">{{ delivery_persons|length }}</strong>
+        </div>
+    </div>
+
+    <!-- List of Repartidores -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for dp in delivery_persons %}
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-all">
+            <div>
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full {% if dp.is_active %}bg-emerald-50 text-emerald-600 border border-emerald-200{% else %}bg-slate-100 text-slate-400 border border-slate-200{% endif %} flex items-center justify-center font-bold text-sm shrink-0">
+                            {{ dp.name|slice:":2"|upper }}
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-sm leading-tight">{{ dp.name }}</h3>
+                            <p class="text-xs text-slate-500 font-mono mt-0.5">{{ dp.phone|default:"Sin teléfono" }}</p>
+                        </div>
+                    </div>
+                    <span id="badge-{{ dp.id }}" class="px-2 py-0.5 rounded-full text-[10px] font-bold {% if dp.is_active %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-slate-100 text-slate-500 border border-slate-200{% endif %}">
+                        {% if dp.is_active %}Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="bike" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
+                        <span class="truncate">{{ dp.vehicle|default:"Motor" }}</span>
+                    </div>
+                    {% if dp.notes %}
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5"></i>
+                        <span class="text-slate-500 italic text-[11px] line-clamp-2">{{ dp.notes }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100 gap-2">
+                <button type="button" onclick="toggleActive({{ dp.id }}, this)" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors">
+                    <span class="toggle-text">{% if dp.is_active %}Desactivar{% else %}Activar{% endif %}</span>
+                </button>
+
+                <button type="button" onclick="openEditModal({{ dp.id }}, '{{ dp.name|escapejs }}', '{{ dp.phone|escapejs }}', '{{ dp.vehicle|escapejs }}', '{{ dp.notes|escapejs }}', {{ dp.is_active|yesno:'true,false' }})" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                    <span>Editar</span>
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center">
+            <div class="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="bike" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-bold text-slate-800 text-sm">No hay repartidores registrados</h3>
+            <p class="text-xs text-slate-400 mt-1">Haga clic en "Nuevo Repartidor" para agregar su primer repartidor de pedidos.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- MODAL REGISTRO / EDICION -->
+<div id="deliveryModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <i data-lucide="bike" class="w-4 h-4"></i>
+                </div>
+                <h3 id="modalTitle" class="font-bold text-slate-900 text-sm">Nuevo Repartidor</h3>
+            </div>
+            <button type="button" onclick="closeModal()" class="text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <form id="deliveryForm" method="post" action="{% url 'delivery_person_create' %}" class="p-5 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo *</label>
+                <input type="text" name="name" id="modalName" required placeholder="Ej. Carlos Sánchez" class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Teléfono / WhatsApp</label>
+                    <input type="text" name="phone" id="modalPhone" placeholder="809-555-1234" class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Vehículo / Placa</label>
+                    <input type="text" name="vehicle" id="modalVehicle" placeholder="Ej. Motor Honda CG / Pasola" class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Notas u Horario de Reparto</label>
+                <textarea name="notes" id="modalNotes" rows="2" placeholder="Zona, turno, observaciones..." class="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500"></textarea>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" name="is_active" id="modalActive" checked class="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500">
+                <label for="modalActive" class="text-xs font-semibold text-slate-700">Repartidor activo y disponible para entregas</label>
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                    Cancelar
+                </button>
+                <button type="submit" class="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-xs">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const modal = document.getElementById('deliveryModal');
+    const form = document.getElementById('deliveryForm');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalName = document.getElementById('modalName');
+    const modalPhone = document.getElementById('modalPhone');
+    const modalVehicle = document.getElementById('modalVehicle');
+    const modalNotes = document.getElementById('modalNotes');
+    const modalActive = document.getElementById('modalActive');
+
+    function openNewModal() {
+        form.action = "{% url 'delivery_person_create' %}";
+        modalTitle.innerText = "Nuevo Repartidor";
+        modalName.value = '';
+        modalPhone.value = '';
+        modalVehicle.value = 'Motor';
+        modalNotes.value = '';
+        modalActive.checked = true;
+        modal.classList.remove('hidden');
+    }
+
+    function openEditModal(id, name, phone, vehicle, notes, isActive) {
+        form.action = `/pos/repartidores/${id}/editar/`;
+        modalTitle.innerText = "Editar Repartidor";
+        modalName.value = name;
+        modalPhone.value = phone;
+        modalVehicle.value = vehicle;
+        modalNotes.value = notes;
+        modalActive.checked = isActive;
+        modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+
+    function toggleActive(id, btn) {
+        fetch(`/pos/repartidores/${id}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const badge = document.getElementById(`badge-${id}`);
+                const toggleSpan = btn.querySelector('.toggle-text');
+                if (data.is_active) {
+                    badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+                    badge.innerText = 'Activo';
+                    toggleSpan.innerText = 'Desactivar';
+                } else {
+                    badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200';
+                    badge.innerText = 'Inactivo';
+                    toggleSpan.innerText = 'Activar';
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

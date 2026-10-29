@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Editar Producto{% else %}Nuevo Producto{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight">{% if form.instance.pk %}Editar Producto: {{ form.instance.name }}{% else %}Registrar Nuevo Producto{% endif %}</h2>
+            <p class="text-sm text-slate-500">Complete los datos generales, precios y tipo de venta</p>
+        </div>
+        <a href="{% url 'product_list' %}" class="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 border rounded-xl hover:bg-slate-50 transition-colors">
+            Cancelar / Volver
+        </a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs space-y-1">
+            <p class="font-bold">Por favor corrija los siguientes errores:</p>
+            {{ form.errors }}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div class="md:col-span-2">
+                <label class="block font-semibold text-slate-700 mb-1">Nombre Completo del Producto *</label>
+                {{ form.name }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Código Interno (SKU) *</label>
+                {{ form.internal_code }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Código de Barras (Escáner)</label>
+                {{ form.barcode }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Categoría *</label>
+                {{ form.category }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Suplidor Habitual</label>
+                {{ form.supplier }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Unidad de Medida *</label>
+                {{ form.unit_of_measure }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Tipo de Venta *</label>
+                {{ form.sale_type }}
+                <p class="text-[10px] text-slate-400 mt-1">"Por Unidad" no permite decimales en caja; "Fraccionado" permite decimales (ej. queso, salami).</p>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Costo de Compra (RD$) *</label>
+                {{ form.cost_price }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Precio de Venta al Público (RD$) *</label>
+                {{ form.sale_price }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Precio Mayorista / Alternativo (RD$)</label>
+                {{ form.wholesale_price }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Stock Actual</label>
+                {{ form.current_stock }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Stock Mínimo (Alerta de Reorden)</label>
+                {{ form.min_stock }}
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Fecha de Vencimiento (Opcional)</label>
+                {{ form.expiry_date }}
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block font-semibold text-slate-700 mb-1">Descripción / Notas</label>
+                {{ form.description }}
+            </div>
+
+            <div class="flex items-center gap-2 pt-2">
+                {{ form.is_active }}
+                <label class="font-semibold text-slate-700">Producto Activo en el Catálogo</label>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <a href="{% url 'product_list' %}" class="px-4 py-2 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</a>
+            <button type="submit" class="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all">
+                Guardar Producto
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

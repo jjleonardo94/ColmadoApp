@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Alertas de Stock y Agotados{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Alertas de Existencias</h2>
+            <p class="text-sm text-slate-500">Productos que requieren reposición inmediata o pedido a suplidores</p>
+        </div>
+        <a href="{% url 'inventory_list' %}" class="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 border rounded-xl hover:bg-slate-50 transition-colors">
+            Volver al Kardex
+        </a>
+    </div>
+
+    <!-- 1. Productos Agotados -->
+    <div class="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden">
+        <div class="p-4 bg-rose-50 border-b border-rose-200 flex items-center justify-between">
+            <h3 class="font-bold text-rose-800 text-sm flex items-center gap-2">
+                <i data-lucide="package-x" class="w-4 h-4 text-rose-600"></i>
+                <span>Productos Totalmente Agotados (Stock 0 o Negativo)</span>
+            </h3>
+            <span class="text-xs font-bold text-rose-700">{{ out_of_stock|length }} artículos</span>
+        </div>
+        <table class="w-full text-left text-xs">
+            <thead>
+                <tr class="bg-slate-50 border-b text-slate-500 uppercase font-semibold">
+                    <th class="p-3.5">Código</th>
+                    <th class="p-3.5">Producto</th>
+                    <th class="p-3.5">Categoría</th>
+                    <th class="p-3.5">Suplidor</th>
+                    <th class="p-3.5 text-right">Existencia Actual</th>
+                    <th class="p-3.5 text-right">Stock Mínimo</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for p in out_of_stock %}
+                <tr class="hover:bg-slate-50">
+                    <td class="p-3.5 font-mono text-slate-600">{{ p.internal_code }}</td>
+                    <td class="p-3.5 font-bold text-slate-900">{{ p.name }}</td>
+                    <td class="p-3.5 text-slate-600">{{ p.category.name }}</td>
+                    <td class="p-3.5 text-slate-600">{{ p.supplier.name|default:"-" }}</td>
+                    <td class="p-3.5 text-right font-black text-rose-600">{{ p.current_stock|floatformat:2 }}</td>
+                    <td class="p-3.5 text-right text-slate-500">{{ p.min_stock|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-6 text-slate-400">Excelente: No hay productos agotados actualmente.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 2. Productos en Stock Mínimo -->
+    <div class="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+        <div class="p-4 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+            <h3 class="font-bold text-amber-800 text-sm flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600"></i>
+                <span>Productos en Stock Mínimo (Punto de Reorden)</span>
+            </h3>
+            <span class="text-xs font-bold text-amber-700">{{ low_stock|length }} artículos</span>
+        </div>
+        <table class="w-full text-left text-xs">
+            <thead>
+                <tr class="bg-slate-50 border-b text-slate-500 uppercase font-semibold">
+                    <th class="p-3.5">Código</th>
+                    <th class="p-3.5">Producto</th>
+                    <th class="p-3.5">Categoría</th>
+                    <th class="p-3.5">Suplidor</th>
+                    <th class="p-3.5 text-right">Existencia Actual</th>
+                    <th class="p-3.5 text-right">Stock Mínimo</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for p in low_stock %}
+                <tr class="hover:bg-slate-50">
+                    <td class="p-3.5 font-mono text-slate-600">{{ p.internal_code }}</td>
+                    <td class="p-3.5 font-bold text-slate-900">{{ p.name }}</td>
+                    <td class="p-3.5 text-slate-600">{{ p.category.name }}</td>
+                    <td class="p-3.5 text-slate-600">{{ p.supplier.name|default:"-" }}</td>
+                    <td class="p-3.5 text-right font-black text-amber-600">{{ p.current_stock|floatformat:2 }}</td>
+                    <td class="p-3.5 text-right text-slate-500">{{ p.min_stock|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-6 text-slate-400">No hay productos en nivel crítico de reorden.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

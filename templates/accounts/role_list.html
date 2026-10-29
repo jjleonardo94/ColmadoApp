@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Perfiles y Roles - ColmadoPOS{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Encabezado con navegación de pestañas -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Control de Acceso y Perfiles</h1>
+      <p class="text-sm text-slate-500">Configura perfiles reutilizables y define exactamente a qué funciones tiene acceso cada rol</p>
+    </div>
+    {% if can_manage_roles %}
+    <a href="{% url 'role_create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-orange-600 rounded-xl hover:bg-orange-700 shadow-sm transition">
+      <i data-lucide="shield-plus" class="w-4 h-4"></i>
+      Nuevo Perfil
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Pestañas de Navegación -->
+  <div class="flex border-b border-slate-200 gap-2">
+    <a href="{% url 'users_list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 transition">
+      <i data-lucide="users" class="w-4 h-4"></i>
+      <span>Usuarios ({{ users_count }})</span>
+    </a>
+    <a href="{% url 'role_list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold border-b-2 border-orange-600 text-orange-600 transition">
+      <i data-lucide="shield-check" class="w-4 h-4"></i>
+      <span>Perfiles & Roles ({{ roles|length }})</span>
+    </a>
+  </div>
+
+  <!-- Grid de Perfiles / Roles -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for role in roles %}
+    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden">
+      <div class="p-5 space-y-4">
+        <!-- Top row: Nombre y Badge -->
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="shield" class="w-4 h-4 text-orange-600 shrink-0"></i>
+              <span>{{ role.name }}</span>
+            </h2>
+            {% if role.is_system_default %}
+              <span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md mt-1 border border-amber-200/60">
+                <i data-lucide="lock" class="w-2.5 h-2.5"></i>
+                Perfil Predeterminado
+              </span>
+            {% else %}
+              <span class="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md mt-1 border border-indigo-200/60">
+                <i data-lucide="sparkles" class="w-2.5 h-2.5"></i>
+                Personalizado
+              </span>
+            {% endif %}
+          </div>
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+            {{ role.users_count }} usuario{{ role.users_count|pluralize:"s" }}
+          </span>
+        </div>
+
+        <!-- Descripción -->
+        <p class="text-xs text-slate-500 line-clamp-2 min-h-[32px]">
+          {{ role.description|default:"Sin descripción detallada." }}
+        </p>
+
+        <!-- Resumen de Permisos Activos -->
+        <div class="space-y-1.5 pt-2 border-t border-slate-100">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Capacidades del Perfil:</p>
+          <div class="flex flex-wrap gap-1.5">
+            {% if role.can_access_pos %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">POS / Ventas</span>{% endif %}
+            {% if role.can_apply_discounts %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Descuentos</span>{% endif %}
+            {% if role.can_void_sales %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200">Anular Ventas</span>{% endif %}
+            {% if role.can_access_credit %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">Libreta Fiados</span>{% endif %}
+            {% if role.can_authorize_credit %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">Aprobar Crédito</span>{% endif %}
+            {% if role.can_record_abono %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">Abonos</span>{% endif %}
+            {% if role.can_access_catalog %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">Productos</span>{% endif %}
+            {% if role.can_adjust_inventory %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">Ajuste Stock</span>{% endif %}
+            {% if role.can_open_close_shifts %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-violet-50 text-violet-700 border border-violet-200">Arqueo Caja</span>{% endif %}
+            {% if role.can_register_expenses %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-violet-50 text-violet-700 border border-violet-200">Gastos</span>{% endif %}
+            {% if role.can_view_reports %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">Reportes</span>{% endif %}
+            {% if role.can_manage_whatsapp %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-green-50 text-green-700 border border-green-200">WhatsApp</span>{% endif %}
+            {% if role.can_manage_branches %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">Sucursales</span>{% endif %}
+            {% if role.can_manage_users %}<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">Gestión Usuarios</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer / Acciones -->
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <span class="text-[11px] text-slate-500 font-medium">
+          {{ role.permissions_count }} permiso{{ role.permissions_count|pluralize:"s" }} activo{{ role.permissions_count|pluralize:"s" }}
+        </span>
+        <div class="flex items-center gap-2">
+          {% if can_manage_roles %}
+          <a href="{% url 'role_update' role.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 transition">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            Configurar Permisos
+          </a>
+          {% if not role.is_system_default and role.users_count == 0 %}
+          <form method="post" action="{% url 'role_delete' role.id %}" onsubmit="return confirmSubmit(event, '¿Está seguro de eliminar el perfil {{ role.name }}?', '¿Eliminar perfil?');" class="inline">
+            {% csrf_token %}
+            <button type="submit" title="Eliminar perfil" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </form>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

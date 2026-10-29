@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}Configuración de WhatsApp (WAHA) - ColmadoPOS{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <!-- Encabezado -->
+  <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 shadow-sm">
+        <i data-lucide="smartphone" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-slate-900 tracking-tight">Integración de WhatsApp (WAHA)</h1>
+        <p class="text-xs text-slate-500">Conexión local por código QR, Webhooks en vivo y protección Anti-Baneo</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'whatsapp_inbox' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition shadow-sm">
+        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+        Ir a la Bandeja
+      </a>
+    </div>
+  </div>
+
+  <!-- Estado WAHA en Vivo -->
+  <div id="wahaStatusCard" class="p-5 rounded-2xl border transition-all duration-200 {% if waha_health.online and waha_health.status == 'WORKING' %}bg-emerald-50/70 border-emerald-300{% elif waha_health.online %}bg-amber-50/70 border-amber-300{% else %}bg-slate-50 border-slate-200{% endif %}">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-start gap-3.5">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm {% if waha_health.online and waha_health.status == 'WORKING' %}bg-emerald-600 text-white{% elif waha_health.online %}bg-amber-500 text-white{% else %}bg-slate-300 text-slate-700{% endif %}">
+          <i data-lucide="{% if waha_health.online and waha_health.status == 'WORKING' %}check-circle-2{% elif waha_health.online %}qr-code{% else %}power-off{% endif %}" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-bold text-base text-slate-900">
+              WAHA: 
+              {% if waha_health.online and waha_health.status == 'WORKING' %}
+                <span class="text-emerald-700">Sesión Conectada y Lista</span>
+              {% elif waha_health.online and waha_health.status == 'SCAN_QR_CODE' %}
+                <span class="text-amber-700">Esperando Escaneo de Código QR</span>
+              {% elif waha_health.online %}
+                <span class="text-amber-700">Servidor Activo (Sesión: {{ waha_health.status }})</span>
+              {% else %}
+                <span class="text-slate-600">Servidor WAHA Fuera de Línea</span>
+              {% endif %}
+            </h3>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider {% if waha_health.online %}bg-emerald-100 text-emerald-800{% else %}bg-slate-200 text-slate-700{% endif %}">
+              {% if waha_health.online %}ONLINE{% else %}OFFLINE{% endif %}
+            </span>
+          </div>
+          <p class="text-xs text-slate-600 mt-1">
+            {% if waha_health.online and waha_health.status == 'WORKING' %}
+              El colmado está conectado mediante WhatsApp. Los mensajes entrantes se registran automáticamente en el sistema y las respuestas salientes utilizan simulación de tipeo.
+            {% elif waha_health.online %}
+              El contenedor WAHA está en ejecución en <code class="font-mono bg-white/70 px-1 py-0.5 rounded text-slate-800">{{ waha_url }}</code>. Escanea el código QR desde tu celular para vincular el número del colmado.
+            {% else %}
+              No se detecta el contenedor de WAHA corriendo en <code class="font-mono bg-white px-1 py-0.5 rounded border border-slate-200">{{ waha_url }}</code>. Inicia el contenedor con Docker para conectar tu WhatsApp.
+            {% endif %}
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 self-start sm:self-center shrink-0">
+        <a href="{{ waha_url }}/dashboard" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-sm">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          Abrir Panel WAHA / Ver QR
+        </a>
+        <button id="btnCheckWaha" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition shadow-sm">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="refreshIcon"></i>
+          Verificar Estado
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Escudo Anti-Baneo Activo -->
+  <div class="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl p-6 text-white shadow-md">
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0">
+        <i data-lucide="shield-check" class="w-6 h-6"></i>
+      </div>
+      <div class="space-y-3 flex-1">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-white tracking-tight">Protección Anti-Baneo y Simulación Humana</h2>
+            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">ACTIVO</span>
+          </div>
+          <p class="text-xs text-indigo-200 mt-1 leading-relaxed">
+            WhatsApp utiliza algoritmos que bloquean números que responden en milisegundos o sin interactuar naturalmente. ColmadoApp protege tu número aplicando la secuencia oficial recomendada por WAHA:
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+          <div class="bg-white/5 border border-white/10 rounded-xl p-3">
+            <div class="flex items-center gap-2 text-indigo-300 font-bold text-xs">
+              <i data-lucide="check-check" class="w-4 h-4 text-emerald-400"></i>
+              1. Confirmación de Lectura
+            </div>
+            <p class="text-[11px] text-slate-300 mt-1">Marca el mensaje entrante con visto (doble check azul) antes de interactuar.</p>
+          </div>
+          <div class="bg-white/5 border border-white/10 rounded-xl p-3">
+            <div class="flex items-center gap-2 text-indigo-300 font-bold text-xs">
+              <i data-lucide="edit-3" class="w-4 h-4 text-amber-400"></i>
+              2. "Escribiendo..." Dinámico
+            </div>
+            <p class="text-[11px] text-slate-300 mt-1">Activa el estado <em>'typing'</em> durante 2 a 4.5 segundos según el largo del texto.</p>
+          </div>
+          <div class="bg-white/5 border border-white/10 rounded-xl p-3">
+            <div class="flex items-center gap-2 text-indigo-300 font-bold text-xs">
+              <i data-lucide="shuffle" class="w-4 h-4 text-purple-400"></i>
+              3. Variación Aleatoria (Jitter)
+            </div>
+            <p class="text-[11px] text-slate-300 mt-1">Agrega pausas aleatorias para que los intervalos de respuesta no sean matemáticamente fijos.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instrucciones de Conexión WAHA -->
+  <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+        <i data-lucide="terminal" class="w-4 h-4 text-orange-600"></i>
+        1. Cómo Iniciar WAHA con Docker
+      </h2>
+      <span class="text-xs text-slate-400 font-mono">docker-compose.waha.yml</span>
+    </div>
+
+    <p class="text-xs text-slate-600 leading-relaxed">
+      Hemos creado el archivo <code class="font-mono bg-slate-100 px-1 py-0.5 rounded text-slate-800">docker-compose.waha.yml</code> en la raíz del proyecto. Para iniciar el servidor de WhatsApp solo ejecuta en tu terminal:
+    </p>
+
+    <div class="bg-slate-900 rounded-xl p-4 font-mono text-xs text-emerald-400 flex items-center justify-between">
+      <code>docker compose -f docker-compose.waha.yml up -d</code>
+      <button onclick="navigator.clipboard.writeText('docker compose -f docker-compose.waha.yml up -d'); showToast('Comando copiado al portapapeles', 'info');" class="text-slate-400 hover:text-white transition text-[11px] flex items-center gap-1">
+        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copiar
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+        <span class="font-semibold text-slate-800 block mb-1">Paso A: Abre el Panel de WAHA</span>
+        <p class="text-slate-500">Ingresa a <a href="http://localhost:3000/dashboard" target="_blank" class="text-orange-600 font-semibold underline">http://localhost:3000/dashboard</a> y presiona <strong>"Start"</strong> en la sesión <code class="font-mono text-slate-700">default</code>.</p>
+      </div>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+        <span class="font-semibold text-slate-800 block mb-1">Paso B: Escanea el Código QR</span>
+        <p class="text-slate-500">Abre WhatsApp en tu celular &gt; Dispositivos vinculados &gt; Vincular un dispositivo y apunta la cámara al código QR en pantalla.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configuración de Webhook en WAHA -->
+  <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+    <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+      <i data-lucide="webhook" class="w-4 h-4 text-orange-600"></i>
+      2. Webhook para Registro de Mensajes Entrantes
+    </h2>
+    <p class="text-xs text-slate-600">
+      Para que el sistema registre en vivo todo lo que los clientes escriben en la bandeja de entrada, asegúrate de que WAHA tenga configurado este endpoint:
+    </p>
+
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">URL del Webhook (Callback URL)</label>
+        <div class="flex items-center gap-2">
+          <input type="text" readonly value="{{ webhook_url }}" class="flex-1 px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-800">
+          <button onclick="navigator.clipboard.writeText('{{ webhook_url }}'); showToast('URL copiada al portapapeles', 'info');" class="px-3 py-2 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition border border-slate-300">
+            Copiar
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-1">Si WAHA corre en Docker en la misma máquina, se utiliza <code class="font-mono">http://host.docker.internal:8000/whatsapp/webhook/</code> (ya preconfigurado en el docker-compose).</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="font-semibold text-slate-700 block">Eventos Monitoreados:</span>
+          <span class="font-mono text-emerald-700 font-bold">message, message.any</span>
+        </div>
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="font-semibold text-slate-700 block">Sesión Activa:</span>
+          <span class="font-mono text-slate-800 font-bold">{{ waha_session }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Respuestas Automatizadas y Seguridad de Fiados -->
+  <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-3">
+    <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+      <i data-lucide="bot" class="w-4 h-4 text-orange-600"></i>
+      3. Reconocimiento de Intenciones del Cliente
+    </h2>
+    <p class="text-xs text-slate-600">
+      Cuando un cliente escribe al número de WhatsApp del colmado, el sistema registra su mensaje y evalúa las siguientes intenciones con el retardo humanizado:
+    </p>
+    <ul class="text-xs text-slate-600 space-y-2.5 list-disc list-inside">
+      <li><strong>Consulta de Saldo / Deuda:</strong> Si escribe <em>"cuánto debo"</em>, <em>"saldo"</em> o <em>"balance"</em>, verifica si su número está registrado en la libreta de clientes del colmado y le responde con su balance exacto. Si no está registrado, le solicita su nombre completo para que el encargado lo vincule.</li>
+      <li><strong>Aviso de Pago / Transferencia:</strong> Si escribe <em>"ya transferí"</em>, <em>"pagué"</em> o <em>"hice el abono"</em>, el sistema responde amablemente indicándole que el encargado de caja verificará el comprobante. <strong>Nunca confirma abonos automáticamente sin validación humana</strong>.</li>
+      <li><strong>Solicitud de Encargado:</strong> Si escribe <em>"humano"</em>, <em>"encargado"</em> o <em>"dueño"</em>, coloca el chat en estado pendiente y notifica en la bandeja de entrada.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  document.getElementById('btnCheckWaha')?.addEventListener('click', async () => {
+    const icon = document.getElementById('refreshIcon');
+    if (icon) icon.classList.add('animate-spin');
+    try {
+      const res = await fetch("{% url 'whatsapp_waha_status' %}");
+      const data = await res.json();
+      if (data.online) {
+        showToast('Conexión con WAHA exitosa. Estado: ' + data.status, 'success');
+      } else {
+        showToast('No se pudo conectar con WAHA (' + (data.error || 'Servidor apagado') + '). Inicie Docker.', 'warning');
+      }
+      setTimeout(() => location.reload(), 1500);
+    } catch (e) {
+      showToast('Error consultando el servidor: ' + e.message, 'error');
+    } finally {
+      if (icon) icon.classList.remove('animate-spin');
+    }
+  });
+</script>
+{% endblock %}

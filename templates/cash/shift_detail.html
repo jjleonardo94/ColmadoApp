@@ -1,0 +1,764 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Detalle de Cierre de Caja #{{ shift.id }} - ColmadoPOS{% endblock %}
+
+{% block extra_head %}
+<style>
+@media print {
+    /* Ajustes específicos para comprobante de cierre de caja */
+    .printable-sheet {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Ocultar iconos de flecha que son de interacción en pantalla */
+    [data-lucide="chevron-right"] {
+        display: none !important;
+    }
+
+    /* Evitar que se corten bloques a mitad de página */
+    .print-avoid-break {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .concept-card {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        border: 1px solid #cbd5e1 !important;
+        background: #f8fafc !important;
+        padding: 8px 12px !important;
+    }
+
+    table {
+        page-break-inside: auto !important;
+    }
+
+    tr {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* Mostrar firmas oficiales de cierre solo al imprimir */
+    .print-signatures {
+        display: block !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between no-print">
+        <a href="{% url 'cash_shift_list' %}" class="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 px-3 py-2 border rounded-xl hover:bg-slate-50 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Volver a Cierres de Caja</span>
+        </a>
+
+        <div class="flex items-center gap-2">
+            <button onclick="window.print()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span>Imprimir Comprobante de Cierre</span>
+            </button>
+            {% if shift.status == 'ABIERTO' and user.profile.perms.can_open_close_shifts %}
+            <a href="{% url 'cash_close_shift' shift.id %}" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+                <i data-lucide="lock" class="w-4 h-4"></i>
+                <span>Proceder al Cierre de Caja</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Printable Closure Sheet -->
+    <div class="printable-sheet bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 text-xs">
+        <!-- Title & Colmado Info -->
+        <div class="border-b border-slate-200 pb-4 flex justify-between items-start">
+            <div>
+                <h3 class="text-xl font-bold text-slate-900">Cierre de Caja #{{ shift.id }}</h3>
+                <p class="text-slate-600 font-medium">{{ settings.name }} &bull; {{ shift.register.name }}</p>
+                <p class="text-slate-400 mt-1">
+                    Cajero Responsable: <strong class="text-slate-700">{{ shift.cashier.get_full_name|default:shift.cashier.username }}</strong>
+                    {% if shift.closed_by and shift.closed_by != shift.cashier %}
+                    &bull; Cerrado por: <strong class="text-slate-700">{{ shift.closed_by.get_full_name|default:shift.closed_by.username }}</strong>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="text-right">
+                <span class="px-3 py-1 rounded-full text-xs font-bold
+                    {% if shift.status == 'ABIERTO' %}bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse
+                    {% else %}bg-slate-100 text-slate-700 border border-slate-200{% endif %}">
+                    {{ shift.get_status_display }}
+                </span>
+                <p class="text-slate-400 mt-2 font-mono">Apertura: {{ shift.opened_at|date:"d/m/Y h:i A" }}</p>
+                {% if shift.closed_at %}
+                <p class="text-slate-400 font-mono">Cierre: {{ shift.closed_at|date:"d/m/Y h:i A" }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Los 6 Conceptos Clave del Cierre -->
+        <div class="space-y-3 print-avoid-break">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                <i data-lucide="layout-grid" class="w-4 h-4 text-orange-600"></i>
+                <span>Conciliación de Ventas del Turno &mdash; Los 6 Conceptos del Cierre (Haga clic en cualquiera para consultar el detalle)</span>
+            </h4>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 print:grid-cols-3 print:gap-2">
+                <!-- 1. Venta Crédito -->
+                <div onclick="openConceptModal('modalCredito')" class="concept-card cursor-pointer bg-amber-50/40 p-4 rounded-xl border border-amber-200 hover:border-amber-400 transition-all group">
+                    <div class="flex items-center justify-between text-xs font-bold text-amber-900 mb-1">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="book-open-check" class="w-4 h-4 text-amber-600"></i>
+                            1. Venta Crédito
+                        </span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-amber-400 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                    <p class="text-lg font-black text-amber-900">RD$ {{ audit.credit_sales|floatformat:2|intcomma }}</p>
+                    <span class="text-[10px] text-slate-500">Pendiente de cobro en libreta</span>
+                </div>
+
+                <!-- 2. Transferencia -->
+                <div onclick="openConceptModal('modalTransferencia')" class="concept-card cursor-pointer bg-blue-50/40 p-4 rounded-xl border border-blue-200 hover:border-blue-400 transition-all group">
+                    <div class="flex items-center justify-between text-xs font-bold text-blue-900 mb-1">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="smartphone" class="w-4 h-4 text-blue-600"></i>
+                            2. Transferencias
+                        </span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-blue-400 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                    <p class="text-lg font-black text-blue-900">RD$ {{ audit.total_transfers|floatformat:2|intcomma }}</p>
+                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.transfer_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_transfer|floatformat:2|intcomma }}</span>
+                </div>
+
+                <!-- 3. Efectivo -->
+                <div onclick="openConceptModal('modalEfectivo')" class="concept-card cursor-pointer bg-emerald-50/40 p-4 rounded-xl border border-emerald-200 hover:border-emerald-400 transition-all group">
+                    <div class="flex items-center justify-between text-xs font-bold text-emerald-900 mb-1">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="banknote" class="w-4 h-4 text-emerald-600"></i>
+                            3. Efectivo Recibido
+                        </span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                    <p class="text-lg font-black text-emerald-900">RD$ {{ audit.total_cash_inflow|floatformat:2|intcomma }}</p>
+                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.cash_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_cash|floatformat:2|intcomma }}</span>
+                </div>
+
+                <!-- 4. Tarjetas -->
+                <div onclick="openConceptModal('modalTarjetas')" class="concept-card cursor-pointer bg-indigo-50/40 p-4 rounded-xl border border-indigo-200 hover:border-indigo-400 transition-all group">
+                    <div class="flex items-center justify-between text-xs font-bold text-indigo-900 mb-1">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="credit-card" class="w-4 h-4 text-indigo-600"></i>
+                            4. Tarjetas (POS)
+                        </span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-indigo-400 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                    <p class="text-lg font-black text-indigo-900">RD$ {{ audit.total_cards|floatformat:2|intcomma }}</p>
+                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.card_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_card|floatformat:2|intcomma }}</span>
+                </div>
+
+                <!-- 5. Fondo Caja -->
+                <div onclick="openConceptModal('modalFondoCaja')" class="concept-card cursor-pointer bg-slate-50 p-4 rounded-xl border border-slate-200 hover:border-slate-400 transition-all group">
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="safe" class="w-4 h-4 text-slate-600"></i>
+                            5. Fondo Caja
+                        </span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                    <p class="text-lg font-black text-slate-900">RD$ {{ shift.initial_cash|floatformat:2|intcomma }}</p>
+                    <span class="text-[10px] text-slate-500">Base inicial para devueltas</span>
+                </div>
+
+                <!-- 6. Abono CxC -->
+                <div onclick="openConceptModal('modalAbonos')" class="concept-card cursor-pointer bg-teal-50/40 p-4 rounded-xl border border-teal-200 hover:border-teal-400 transition-all group">
+                    <div class="flex items-center justify-between text-xs font-bold text-teal-900 mb-1">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="receipt" class="w-4 h-4 text-teal-600"></i>
+                            6. Abono CxC
+                        </span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-teal-400 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                    <p class="text-lg font-black text-teal-900">RD$ {{ audit.total_abonos|floatformat:2|intcomma }}</p>
+                    <span class="text-[10px] text-slate-500">Recuperación de cuentas por cobrar</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auditor Financial Reconciliation Matrix -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3 print-avoid-break">
+            <!-- Bloque 1: Conciliación de Ventas -->
+            <div class="border border-blue-200 rounded-xl p-4 bg-blue-50/20 space-y-3">
+                <div class="flex items-center justify-between border-b border-blue-100 pb-2">
+                    <span class="font-bold text-xs uppercase text-blue-900 tracking-wider flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                        Conciliación de Ventas
+                    </span>
+                    <span class="text-[11px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
+                        {{ audit.sales_count }} venta{{ audit.sales_count|pluralize }}
+                    </span>
+                </div>
+
+                <div class="space-y-1.5 text-xs">
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-600">Ventas en Efectivo Contado:</span>
+                        <span class="font-bold text-slate-800">RD$ {{ audit.cash_sales|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-600">Ventas con Tarjeta:</span>
+                        <span class="font-bold text-slate-800">RD$ {{ audit.card_sales|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-600">Ventas por Transferencia:</span>
+                        <span class="font-bold text-slate-800">RD$ {{ audit.transfer_sales|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-amber-200 bg-amber-50/60 px-1.5 rounded">
+                        <span class="font-bold text-amber-900">Ventas a Crédito (Libreta):</span>
+                        <span class="font-black text-amber-700">RD$ {{ audit.credit_sales|floatformat:2|intcomma }}</span>
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t-2 border-blue-200 space-y-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-blue-900 uppercase">Venta Total Bruta:</span>
+                        <span class="font-black text-blue-950 text-sm">RD$ {{ audit.total_gross_sales|floatformat:2|intcomma }}</span>
+                    </div>
+                    {% if audit.total_discount > 0 %}
+                    <div class="flex justify-between text-xs text-rose-600 pt-1">
+                        <span>(-) Descuentos Otorgados:</span>
+                        <span class="font-bold">-RD$ {{ audit.total_discount|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="flex justify-between text-xs font-bold text-slate-900 pt-1 border-t border-slate-200">
+                        <span>Venta Neta del Período:</span>
+                        <span class="font-black">RD$ {{ audit.net_sales|floatformat:2|intcomma }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Bloque 2: Arqueo Físico y Fondos -->
+            <div class="border border-emerald-200 rounded-xl p-4 bg-emerald-50/20 space-y-3">
+                <div class="flex items-center justify-between border-b border-emerald-100 pb-2">
+                    <span class="font-bold text-xs uppercase text-emerald-900 tracking-wider flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        Arqueo Físico de Gaveta & Fondos
+                    </span>
+                    <span class="text-[11px] font-semibold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                        Dinero Líquido
+                    </span>
+                </div>
+
+                <div class="space-y-1.5 text-xs">
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-600">Fondo Inicial de Caja:</span>
+                        <span class="font-bold text-slate-800">RD$ {{ shift.initial_cash|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-600">(+) Ventas del Turno en Efectivo:</span>
+                        <span class="font-bold text-emerald-600">+RD$ {{ audit.cash_sales|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-600">(+) Cobros / Abonos CxC en Efectivo:</span>
+                        <span class="font-bold text-emerald-600">+RD$ {{ audit.abonos_cash|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-600">(-) Gastos Pagados en Efectivo:</span>
+                        <span class="font-bold text-rose-600">-RD$ {{ audit.cash_expenses|floatformat:2|intcomma }}</span>
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t-2 border-emerald-200 space-y-1.5">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-slate-700">Efectivo Esperado en Gaveta:</span>
+                        <span class="font-black text-slate-900 text-sm">
+                            RD$ {{ audit.expected_cash|floatformat:2|intcomma }}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-slate-700">Efectivo Contado Físicamente:</span>
+                        <span class="font-black text-slate-900 text-sm">
+                            {% if shift.counted_cash is not None %}RD$ {{ shift.counted_cash|floatformat:2|intcomma }}{% else %}<span class="text-amber-600 text-xs">(En turno abierto)</span>{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-200">
+                        <span class="font-bold text-slate-900">Diferencia de Caja:</span>
+                        <span class="text-sm font-black {% if shift.difference < 0 %}text-rose-600{% elif shift.difference > 0 %}text-blue-600{% else %}text-emerald-600{% endif %}">
+                            {% if shift.difference is not None %}
+                                {% if shift.difference > 0 %}+{% endif %}RD$ {{ shift.difference|floatformat:2|intcomma }}
+                                {% if shift.difference == 0 %}<span class="text-[11px] font-bold text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded ml-1">Exacto</span>{% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Fondo retenido y dinero retirado -->
+                <div class="mt-3 p-2.5 bg-white rounded-xl border border-emerald-200 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <span class="text-slate-500 text-[10px] block">Fondo Dejado en Gaveta:</span>
+                        <span class="font-bold text-emerald-800">
+                            {% if shift.cash_to_remain is not None %}
+                            RD$ {{ shift.cash_to_remain|floatformat:2|intcomma }}
+                            {% else %}
+                            RD$ {{ shift.initial_cash|floatformat:2|intcomma }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-slate-500 text-[10px] block">Importe Retirado:</span>
+                        <span class="font-bold text-indigo-900">
+                            {% if shift.amount_withdrawn is not None %}
+                            RD$ {{ shift.amount_withdrawn|floatformat:2|intcomma }}
+                            {% else %}
+                            RD$ 0.00
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if shift.difference_explanation %}
+        <div class="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs space-y-1">
+            <p class="font-bold flex items-center gap-1.5">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
+                Justificación Asentada de la Diferencia de Caja:
+            </p>
+            <p class="text-slate-800 bg-white p-2.5 rounded-lg border border-rose-200 mt-1">{{ shift.difference_explanation }}</p>
+            {% if shift.difference_authorized_by %}
+            <p class="text-[11px] text-emerald-700 font-semibold mt-1">
+                &bull; Diferencia autorizada y validada por: <strong>{{ shift.difference_authorized_by.get_full_name|default:shift.difference_authorized_by.username }}</strong>
+            </p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if shift.closing_notes %}
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
+            <span class="font-bold text-slate-700">Observaciones de Cierre:</span>
+            <p class="text-slate-600">{{ shift.closing_notes }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Physical Denomination Breakdown if closed -->
+        {% if denomination_counts %}
+        <div class="print-avoid-break">
+            <h4 class="font-bold text-slate-800 text-sm mb-2 flex items-center gap-2">
+                <i data-lucide="coins" class="w-4 h-4 text-orange-600"></i>
+                <span>Arqueo Físico de Denominaciones (Billetes y Monedas RD$)</span>
+            </h4>
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-slate-50 border-b text-slate-500 uppercase text-[10px] font-semibold">
+                            <th class="p-2.5">Denominación</th>
+                            <th class="p-2.5 text-center">Cantidad Contada</th>
+                            <th class="p-2.5 text-right">Subtotal RD$</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for dc in denomination_counts %}
+                        <tr>
+                            <td class="p-2.5 font-bold text-slate-800">{{ dc.denomination.name }}</td>
+                            <td class="p-2.5 text-center font-bold">{{ dc.quantity }}</td>
+                            <td class="p-2.5 text-right font-bold text-slate-900">RD$ {{ dc.subtotal|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-slate-50 font-bold border-t border-slate-200">
+                            <td colspan="2" class="p-2.5 text-right uppercase text-slate-600">Total Arqueado Físicamente:</td>
+                            <td class="p-2.5 text-right font-black text-slate-900 text-sm">RD$ {{ shift.counted_cash|floatformat:2|intcomma }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Cash Movements in this shift -->
+        <div class="print-avoid-break">
+            <h4 class="font-bold text-slate-800 text-sm mb-2 flex items-center gap-2">
+                <i data-lucide="arrow-left-right" class="w-4 h-4 text-slate-600"></i>
+                <span>Movimientos Registrados en Gaveta</span>
+            </h4>
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-slate-50 border-b text-slate-500 uppercase text-[10px] font-semibold">
+                            <th class="p-2.5">Hora</th>
+                            <th class="p-2.5">Tipo</th>
+                            <th class="p-2.5">Concepto</th>
+                            <th class="p-2.5">Descripción</th>
+                            <th class="p-2.5 text-right">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for mov in movements %}
+                        <tr>
+                            <td class="p-2.5 text-slate-500 font-mono">{{ mov.created_at|date:"h:i A" }}</td>
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold {% if mov.movement_type == 'INGRESO' %}bg-emerald-50 text-emerald-700{% else %}bg-rose-50 text-rose-700{% endif %}">
+                                    {{ mov.get_movement_type_display }}
+                                </span>
+                            </td>
+                            <td class="p-2.5 font-semibold text-slate-800">{{ mov.category }}</td>
+                            <td class="p-2.5 text-slate-500">{{ mov.description|default:"-" }}</td>
+                            <td class="p-2.5 text-right font-bold text-slate-900">
+                                {% if mov.movement_type == 'INGRESO' %}
+                                <span class="text-emerald-600">+RD$ {{ mov.amount|floatformat:2|intcomma }}</span>
+                                {% else %}
+                                <span class="text-rose-600">-RD$ {{ mov.amount|floatformat:2|intcomma }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-6 text-slate-400">Sin movimientos de caja registrados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Firmas de Cierre y Validación (Visible al Imprimir) -->
+        <div class="print-signatures hidden pt-8 mt-6 border-t border-slate-300">
+            <div class="grid grid-cols-2 gap-12 text-center">
+                <div>
+                    <div class="border-t border-slate-400 pt-2 w-56 mx-auto">
+                        <p class="font-bold text-slate-900 text-xs">{{ shift.cashier.get_full_name|default:shift.cashier.username }}</p>
+                        <p class="text-[10px] text-slate-500">Cajero(a) Responsable del Turno</p>
+                    </div>
+                </div>
+                <div>
+                    <div class="border-t border-slate-400 pt-2 w-56 mx-auto">
+                        <p class="font-bold text-slate-900 text-xs">{{ shift.closed_by.get_full_name|default:"Administración / Propietario" }}</p>
+                        <p class="text-[10px] text-slate-500">Auditoría / Recibido Conforme</p>
+                    </div>
+                </div>
+            </div>
+            <p class="text-[9px] text-slate-400 text-center mt-6">Comprobante emitido por ColmadoApp &bull; Fecha y hora de impresión: {% now "d/m/Y h:i A" %}</p>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODALES DE DETALLE ==================== -->
+
+<!-- Modal 1: Venta Crédito -->
+<div id="modalCredito" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-amber-50/50">
+            <div class="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                <i data-lucide="book-open-check" class="w-5 h-5 text-amber-600"></i>
+                <span>Detalle de Ventas a Crédito del Cierre</span>
+            </div>
+            <button onclick="closeConceptModal('modalCredito')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-4 overflow-y-auto flex-1 text-xs space-y-3">
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-[10px]">
+                        <tr>
+                            <th class="p-2.5">Ticket</th>
+                            <th class="p-2.5">Cliente / Teléfono</th>
+                            <th class="p-2.5">Artículos</th>
+                            <th class="p-2.5 text-right">Total Venta</th>
+                            <th class="p-2.5 text-right">Crédito</th>
+                            <th class="p-2.5 text-center">Estado CxC</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for item in credit_sales_detail %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5 font-mono font-bold text-slate-900">{{ item.ticket_number }}</td>
+                            <td class="p-2.5">
+                                <span class="font-bold text-slate-800 block">{{ item.customer_name }}</span>
+                                <span class="text-slate-400 text-[10px]">{{ item.customer_phone|default:"Sin teléfono" }}</span>
+                            </td>
+                            <td class="p-2.5 text-slate-600 max-w-[200px] truncate" title="{{ item.items_summary }}">{{ item.items_summary }}</td>
+                            <td class="p-2.5 text-right font-medium">RD$ {{ item.total_sale|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-bold text-amber-700">RD$ {{ item.credit_amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-center">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                    Debe: RD$ {{ item.customer_balance|floatformat:2|intcomma }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="p-6 text-center text-slate-400">No se registraron ventas a crédito en este turno.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="p-3 border-t bg-slate-50 text-right">
+            <button onclick="closeConceptModal('modalCredito')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 2: Transferencia -->
+<div id="modalTransferencia" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-blue-50/50">
+            <div class="flex items-center gap-2 text-blue-900 font-bold text-sm">
+                <i data-lucide="smartphone" class="w-5 h-5 text-blue-600"></i>
+                <span>Detalle de Transferencias Bancarias</span>
+            </div>
+            <button onclick="closeConceptModal('modalTransferencia')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-4 overflow-y-auto flex-1 text-xs space-y-3">
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-[10px]">
+                        <tr>
+                            <th class="p-2.5">Concepto</th>
+                            <th class="p-2.5">Ticket / Ref</th>
+                            <th class="p-2.5">Cliente</th>
+                            <th class="p-2.5">Referencia Bancaria</th>
+                            <th class="p-2.5 text-right">Importe RD$</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for item in transfer_operations_detail %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold {% if item.type == 'VENTA' %}bg-blue-50 text-blue-700{% else %}bg-teal-50 text-teal-700{% endif %}">
+                                    {{ item.type_label }}
+                                </span>
+                            </td>
+                            <td class="p-2.5 font-mono">{{ item.ticket }}</td>
+                            <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
+                            <td class="p-2.5 font-mono text-slate-600">{{ item.reference }}</td>
+                            <td class="p-2.5 text-right font-black text-blue-900">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="p-6 text-center text-slate-400">No se registraron transferencias en este turno.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="p-3 border-t bg-slate-50 text-right">
+            <button onclick="closeConceptModal('modalTransferencia')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 3: Efectivo -->
+<div id="modalEfectivo" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-emerald-50/50">
+            <div class="flex items-center gap-2 text-emerald-900 font-bold text-sm">
+                <i data-lucide="banknote" class="w-5 h-5 text-emerald-600"></i>
+                <span>Detalle de Operaciones en Efectivo</span>
+            </div>
+            <button onclick="closeConceptModal('modalEfectivo')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-4 overflow-y-auto flex-1 text-xs space-y-3">
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-[10px]">
+                        <tr>
+                            <th class="p-2.5">Tipo</th>
+                            <th class="p-2.5">Ticket / Documento</th>
+                            <th class="p-2.5">Cliente</th>
+                            <th class="p-2.5">Usuario</th>
+                            <th class="p-2.5 text-right">Monto Recibido RD$</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for item in cash_operations_detail %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold {% if item.type == 'VENTA' %}bg-emerald-50 text-emerald-700{% else %}bg-teal-50 text-teal-700{% endif %}">
+                                    {{ item.type_label }}
+                                </span>
+                            </td>
+                            <td class="p-2.5 font-mono text-slate-800">{{ item.ticket }}</td>
+                            <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
+                            <td class="p-2.5 text-slate-500">{{ item.user }}</td>
+                            <td class="p-2.5 text-right font-black text-emerald-700">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="p-6 text-center text-slate-400">No hay movimientos de efectivo.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="p-3 border-t bg-slate-50 text-right">
+            <button onclick="closeConceptModal('modalEfectivo')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 4: Tarjetas -->
+<div id="modalTarjetas" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-indigo-50/50">
+            <div class="flex items-center gap-2 text-indigo-900 font-bold text-sm">
+                <i data-lucide="credit-card" class="w-5 h-5 text-indigo-600"></i>
+                <span>Detalle de Operaciones con Tarjeta</span>
+            </div>
+            <button onclick="closeConceptModal('modalTarjetas')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-4 overflow-y-auto flex-1 text-xs space-y-3">
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-[10px]">
+                        <tr>
+                            <th class="p-2.5">Tipo</th>
+                            <th class="p-2.5">Ticket</th>
+                            <th class="p-2.5">Cliente</th>
+                            <th class="p-2.5">Aprobación / Lote</th>
+                            <th class="p-2.5 text-right">Importe RD$</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for item in card_operations_detail %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">
+                                    {{ item.type_label }}
+                                </span>
+                            </td>
+                            <td class="p-2.5 font-mono">{{ item.ticket }}</td>
+                            <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
+                            <td class="p-2.5 font-mono text-slate-600">{{ item.reference }}</td>
+                            <td class="p-2.5 text-right font-black text-indigo-900">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="p-6 text-center text-slate-400">No se registraron pagos con tarjeta.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="p-3 border-t bg-slate-50 text-right">
+            <button onclick="closeConceptModal('modalTarjetas')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 5: Fondo Caja -->
+<div id="modalFondoCaja" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div class="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <i data-lucide="safe" class="w-5 h-5 text-slate-700"></i>
+                <span>Detalle de Fondo de Caja</span>
+            </div>
+            <button onclick="closeConceptModal('modalFondoCaja')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-5 text-xs space-y-3.5">
+            <div class="flex justify-between py-2 border-b">
+                <span class="text-slate-600 font-medium">Fondo Inicial de Apertura:</span>
+                <span class="font-bold text-slate-900">RD$ {{ shift.initial_cash|floatformat:2|intcomma }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+                <span class="text-slate-600 font-medium">Fondo Dejado al Cierre:</span>
+                <span class="font-bold text-emerald-700">
+                    {% if shift.cash_to_remain is not None %}
+                    RD$ {{ shift.cash_to_remain|floatformat:2|intcomma }}
+                    {% else %}
+                    RD$ {{ shift.initial_cash|floatformat:2|intcomma }}
+                    {% endif %}
+                </span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+                <span class="text-slate-600 font-medium">Importe Retirado de Caja:</span>
+                <span class="font-bold text-indigo-900">
+                    {% if shift.amount_withdrawn is not None %}
+                    RD$ {{ shift.amount_withdrawn|floatformat:2|intcomma }}
+                    {% else %}
+                    RD$ 0.00
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        <div class="p-3 border-t bg-slate-50 text-right">
+            <button onclick="closeConceptModal('modalFondoCaja')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 6: Abonos CxC -->
+<div id="modalAbonos" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-teal-50/50">
+            <div class="flex items-center gap-2 text-teal-900 font-bold text-sm">
+                <i data-lucide="receipt" class="w-5 h-5 text-teal-600"></i>
+                <span>Detalle de Abonos a Cuentas por Cobrar (CxC)</span>
+            </div>
+            <button onclick="closeConceptModal('modalAbonos')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-4 overflow-y-auto flex-1 text-xs space-y-3">
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-[10px]">
+                        <tr>
+                            <th class="p-2.5">Cliente</th>
+                            <th class="p-2.5">Cuenta / Venta</th>
+                            <th class="p-2.5">Método</th>
+                            <th class="p-2.5 text-right">Saldo Anterior</th>
+                            <th class="p-2.5 text-right">Abono RD$</th>
+                            <th class="p-2.5 text-right">Saldo Restante</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for ab in abonos_detail %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5 font-bold text-slate-800">{{ ab.client }}</td>
+                            <td class="p-2.5 font-mono text-slate-600">{{ ab.account }}</td>
+                            <td class="p-2.5 font-semibold text-slate-700">{{ ab.payment_method }}</td>
+                            <td class="p-2.5 text-right text-slate-500">RD$ {{ ab.balance_before|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-black text-teal-700">RD$ {{ ab.amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-bold text-slate-800">RD$ {{ ab.balance_after|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="p-6 text-center text-slate-400">No se registraron abonos en este turno.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="p-3 border-t bg-slate-50 text-right">
+            <button onclick="closeConceptModal('modalAbonos')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function openConceptModal(modalId) {
+        document.getElementById(modalId).classList.remove('hidden');
+    }
+    function closeConceptModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+</script>
+{% endblock %}

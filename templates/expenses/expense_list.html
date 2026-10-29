@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Gastos Operativos{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Gastos Operativos del Negocio</h2>
+            <p class="text-sm text-slate-500">Registro de salidas de caja por servicios (luz, agua, fletes, alquiler, sueldos)</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="{% url 'expense_create' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>Registrar Gasto</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+        <form method="GET" class="flex flex-wrap items-center gap-2 flex-1">
+            <select name="categoria" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-orange-500 bg-slate-50">
+                <option value="">Todos los Rubros</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}" {% if selected_cat == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="metodo" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-orange-500 bg-slate-50">
+                <option value="">Todos los Métodos</option>
+                <option value="EFECTIVO" {% if selected_method == 'EFECTIVO' %}selected{% endif %}>Efectivo (Sale de Caja)</option>
+                <option value="TRANSFERENCIA" {% if selected_method == 'TRANSFERENCIA' %}selected{% endif %}>Transferencia Bancaria</option>
+                <option value="TARJETA" {% if selected_method == 'TARJETA' %}selected{% endif %}>Tarjeta</option>
+            </select>
+
+            <input type="date" name="fecha" value="{{ selected_date }}"
+                   class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-orange-500 bg-slate-50">
+
+            <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+                <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                <span>Filtrar</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Expenses Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                        <th class="p-3.5">Fecha</th>
+                        <th class="p-3.5">Rubro / Categoría</th>
+                        <th class="p-3.5">Descripción / Concepto</th>
+                        <th class="p-3.5">Método de Pago</th>
+                        <th class="p-3.5">Registrado Por</th>
+                        <th class="p-3.5 text-right">Monto del Gasto</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for exp in expenses %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-3.5 text-slate-500 font-mono">{{ exp.date|date:"d/m/Y" }}</td>
+                        <td class="p-3.5 font-bold text-slate-800">{{ exp.category.name }}</td>
+                        <td class="p-3.5 text-slate-700">{{ exp.description }}</td>
+                        <td class="p-3.5">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold
+                                {% if exp.payment_method == 'EFECTIVO' %}bg-amber-50 text-amber-800
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                {{ exp.get_payment_method_display }}
+                            </span>
+                            {% if exp.cash_shift %}
+                            <span class="block text-[10px] text-slate-400">Turno #{{ exp.cash_shift.id }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-slate-600">{{ exp.user.username|default:"Sistema" }}</td>
+                        <td class="p-3.5 text-right font-black text-rose-600 text-sm">RD$ {{ exp.amount|floatformat:2|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-12 text-slate-400">No se encontraron gastos registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

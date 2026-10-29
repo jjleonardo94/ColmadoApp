@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Reportes Financieros y Ganancias Reales{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Reporte Financiero & Ganancias Reales</h2>
+            <p class="text-sm text-slate-500">Cálculos con costos históricos en el momento de cada venta y gastos operativos</p>
+        </div>
+
+        <!-- Export Buttons & Period Filter -->
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'export_sales_excel' %}" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                <span>Exportar Excel</span>
+            </a>
+            <a href="{% url 'export_sales_csv' %}" class="px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+                <span>CSV</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Date Range Filter -->
+    <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+        <form method="GET" class="flex flex-wrap items-center gap-3 flex-1">
+            <div class="flex items-center gap-2">
+                <span class="text-slate-500 font-semibold">Desde:</span>
+                <input type="date" name="desde" value="{{ start_date|date:'Y-m-d' }}" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 bg-slate-50">
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-slate-500 font-semibold">Hasta:</span>
+                <input type="date" name="hasta" value="{{ end_date|date:'Y-m-d' }}" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-800 bg-slate-50">
+            </div>
+            <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+                <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                <span>Calcular Período</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Financial Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 1. Ventas Brutas Totales -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Ventas Netas del Período</span>
+            <h3 class="text-2xl font-black text-slate-900 mt-2">RD$ {{ total_sales|floatformat:2|intcomma }}</h3>
+            <p class="text-xs text-slate-500 mt-1">{{ transactions_count }} ventas completadas</p>
+        </div>
+
+        <!-- 2. Costo de Mercancía Vendida (COGS) -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Costo Mercancía Vendida (COGS)</span>
+            <h3 class="text-2xl font-bold text-slate-700 mt-2">RD$ {{ total_cogs|floatformat:2|intcomma }}</h3>
+            <p class="text-xs text-slate-400 mt-1">Costo al momento de venta</p>
+        </div>
+
+        <!-- 3. Ganancia Bruta Real -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Ganancia Bruta</span>
+            <h3 class="text-2xl font-black text-orange-600 mt-2">RD$ {{ gross_profit|floatformat:2|intcomma }}</h3>
+            <p class="text-xs text-slate-500 mt-1">Margen comercial: <strong>{{ gross_margin_pct|floatformat:1 }}%</strong></p>
+        </div>
+
+        <!-- 4. Ganancia Neta Operativa Estimada -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Ganancia Neta Operativa</span>
+            <h3 class="text-2xl font-black {% if net_operating_profit >= 0 %}text-emerald-600{% else %}text-rose-600{% endif %} mt-2">
+                RD$ {{ net_operating_profit|floatformat:2|intcomma }}
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Tras deducir RD$ {{ total_expenses|floatformat:2|intcomma }} de gastos</p>
+        </div>
+    </div>
+
+    <!-- CREDIT CLARITY NOTICE (Evitar Duplicar Ingresos) -->
+    <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5 text-xs text-blue-900 space-y-2">
+        <h4 class="font-bold text-sm flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
+            <span>Diferenciación Contable de Ingresos vs Cobros de Créditos</span>
+        </h4>
+        <p class="leading-relaxed">
+            Para evitar contabilizar el dinero dos veces en los ingresos del colmado, ColmadoPOS distingue con claridad matemática:
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="bg-white p-3 rounded-xl border border-blue-100">
+                <span class="font-bold text-slate-800">Créditos Otorgados en el Período:</span>
+                <p class="text-base font-extrabold text-blue-600">RD$ {{ fiados_granted|floatformat:2|intcomma }}</p>
+                <p class="text-[11px] text-slate-400">Generan venta e inventario descontado hoy, pero sin efectivo inmediato.</p>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-blue-100">
+                <span class="font-bold text-slate-800">Abonos / Cobros Recibidos en el Período:</span>
+                <p class="text-base font-extrabold text-emerald-600">RD$ {{ abonos_collected|floatformat:2|intcomma }}</p>
+                <p class="text-[11px] text-slate-400">Ingreso real de flujo de caja que cancela cuentas por cobrar pendientes.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Sales Breakdown -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Sales by Category -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="font-bold text-slate-900 text-sm mb-4">Ventas por Categoría</h3>
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b text-slate-400 font-semibold">
+                        <th class="pb-2">Categoría</th>
+                        <th class="pb-2 text-center">Unidades</th>
+                        <th class="pb-2 text-right">Total Ventas</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for c in category_sales %}
+                    <tr>
+                        <td class="py-2.5 font-bold text-slate-800">{{ c.product__category__name }}</td>
+                        <td class="py-2.5 text-center text-slate-600">{{ c.total_units|floatformat:1 }}</td>
+                        <td class="py-2.5 text-right font-extrabold text-orange-600">RD$ {{ c.total_amount|floatformat:2|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center py-6 text-slate-400">Sin datos en el período.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Expenses by Category -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="font-bold text-slate-900 text-sm mb-4">Gastos por Rubro</h3>
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b text-slate-400 font-semibold">
+                        <th class="pb-2">Rubro Operativo</th>
+                        <th class="pb-2 text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for exp in expenses_breakdown %}
+                    <tr>
+                        <td class="py-2.5 font-bold text-slate-800">{{ exp.category__name }}</td>
+                        <td class="py-2.5 text-right font-extrabold text-rose-600">RD$ {{ exp.total_amount|floatformat:2|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-center py-6 text-slate-400">No hay gastos en el período.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

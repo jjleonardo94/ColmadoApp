@@ -1,0 +1,7 @@
+Django>=4.2,<5.0
+psycopg2-binary>=2.9.9
+python-decouple>=3.8
+Pillow>=10.2.0
+XlsxWriter>=3.2.0
+requests>=2.31.0
+pytz>=2024.1

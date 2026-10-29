@@ -1,0 +1,25 @@
+# Archivo Docker Compose para WAHA (WhatsApp HTTP API - devlikeapro/waha)
+# Acceso directo sin contraseña para desarrollo local
+services:
+  waha:
+    image: devlikeapro/waha
+    container_name: colmadopos_waha
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - WAHA_LOG_LEVEL=info
+      - WAHA_PRINT_QR=true
+      - WAHA_DASHBOARD_NO_PASSWORD=True
+      - WAHA_DASHBOARD_PASSWORD=
+      - WHATSAPP_SWAGGER_NO_PASSWORD=True
+      - WHATSAPP_SWAGGER_PASSWORD=
+      - WAHA_API_KEY=colmadopos_secret_waha_api_key_2026
+      # Webhook hacia el backend de ColmadoApp
+      - WHATSAPP_HOOK_URL=http://host.docker.internal:8000/whatsapp/webhook/
+      - WHATSAPP_HOOK_EVENTS=message,message.any
+    volumes:
+      - waha_sessions:/app/.sessions
+
+volumes:
+  waha_sessions:

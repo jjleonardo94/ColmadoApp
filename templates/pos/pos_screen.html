@@ -1,0 +1,820 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Punto de Venta Rápido (POS){% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Keyboard shortcut badges */
+    .kbd-badge {
+        font-family: monospace;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-size: 11px;
+        color: #475569;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="h-[calc(100vh-5rem)] flex flex-col lg:flex-row gap-4 max-w-[1600px] mx-auto overflow-hidden">
+
+    <!-- LEFT COLUMN: PRODUCT SEARCH & CATALOG -->
+    <div class="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-w-0">
+        <!-- Top Toolbar: Search and Category chips -->
+        <div class="p-4 border-b border-slate-100 space-y-3 bg-white">
+            <!-- Search Bar with Scanner Support -->
+            <div class="relative">
+                <i data-lucide="search" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="productSearchInput" autofocus
+                       placeholder="Buscar por nombre, código interno o escanee código de barras... (F3)"
+                       class="w-full pl-11 pr-24 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-sm transition-all">
+                <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                    <span class="kbd-badge">F3</span>
+                    <i data-lucide="barcode" class="w-4 h-4 text-slate-400"></i>
+                </div>
+            </div>
+
+            <!-- Categories Filter horizontal scroll -->
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                <button type="button" onclick="filterByCategory('')" id="cat-btn-all"
+                        class="cat-filter-btn px-3 py-1.5 rounded-lg font-medium whitespace-nowrap bg-orange-600 text-white shadow-sm transition-colors">
+                    Todos
+                </button>
+                {% for cat in categories %}
+                <button type="button" onclick="filterByCategory('{{ cat.id }}')" id="cat-btn-{{ cat.id }}"
+                        class="cat-filter-btn px-3 py-1.5 rounded-lg font-medium whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+                    {{ cat.name }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Product Cards Grid / List -->
+        <div class="flex-1 p-4 overflow-y-auto">
+            <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                {% for p in popular_products %}
+                <div onclick="addProductToCart({{ p.id }}, '{{ p.name|escapejs }}', {{ p.sale_price }}, {{ p.current_stock }}, '{{ p.sale_type }}', '{{ p.get_unit_of_measure_display }}', {{ p.allows_decimals|lower }})"
+                     class="group relative bg-white border border-slate-200 rounded-xl p-3 flex flex-col justify-between cursor-pointer hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98]">
+                    <div>
+                        <div class="flex items-start justify-between gap-1 mb-1.5">
+                            <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">{{ p.category.name }}</span>
+                            {% if p.is_out_of_stock %}
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600">Agotado</span>
+                            {% elif p.is_low_stock %}
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-600">Bajo</span>
+                            {% endif %}
+                        </div>
+                        <h4 class="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-600 transition-colors">{{ p.name }}</h4>
+                    </div>
+                    
+                    <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <div>
+                            <span class="text-sm font-extrabold text-slate-900">RD$ {{ p.sale_price|floatformat:2 }}</span>
+                            <span class="text-[10px] text-slate-400 block">/ {{ p.get_unit_of_measure_display }}</span>
+                        </div>
+                        <span class="text-[11px] font-semibold text-slate-500">Stock: {{ p.current_stock|floatformat:1 }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-12 text-slate-400 text-sm">
+                    <i data-lucide="package-search" class="w-10 h-10 mx-auto mb-2 stroke-1"></i>
+                    No hay productos en esta categoría o no coinciden con la búsqueda.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: CART & CHECKOUT -->
+    <div class="w-full lg:w-96 xl:w-[420px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden shrink-0">
+        <!-- Cart Header & Customer Selector -->
+        <div class="p-4 border-b border-slate-100 space-y-3 bg-slate-50/60">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
+                    <h3 class="font-bold text-slate-900 text-sm">Ticket Actual</h3>
+                </div>
+                <button type="button" onclick="clearCart()" class="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <span>Limpiar</span>
+                </button>
+            </div>
+
+            <!-- Customer Selector -->
+            <div>
+                <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1 flex items-center justify-between">
+                    <span>Cliente (Crédito / CxC)</span>
+                    <span class="kbd-badge">F4</span>
+                </label>
+                <div class="relative">
+                    <select id="customerSelect" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:border-orange-500">
+                        <option value="">Consumidor Final (Venta Ocasional)</option>
+                        {% for c in customers %}
+                        <option value="{{ c.id }}" data-balance="{{ c.current_balance }}" data-limit="{{ c.credit_limit }}" data-avail="{{ c.available_credit }}">
+                            {{ c.name }} - Saldo: RD$ {{ c.current_balance|floatformat:2 }} (Disp: RD$ {{ c.available_credit|floatformat:2 }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cart Items List -->
+        <div id="cartItemsList" class="flex-1 p-4 overflow-y-auto divide-y divide-slate-100 space-y-2">
+            <!-- Dynamic Cart Items Rendered Here via JS -->
+            <div id="emptyCartMessage" class="text-center py-16 text-slate-400">
+                <i data-lucide="shopping-cart" class="w-12 h-12 mx-auto mb-2 text-slate-300 stroke-1"></i>
+                <p class="text-sm font-medium text-slate-500">El carrito está vacío</p>
+                <p class="text-xs text-slate-400 mt-1">Escanee un código de barras o seleccione productos del catálogo.</p>
+            </div>
+        </div>
+
+        <!-- Cart Financial Totals -->
+        <div class="p-4 border-t border-slate-200 bg-slate-50/70 space-y-2 text-xs">
+            <div class="flex justify-between text-slate-600">
+                <span>Subtotal</span>
+                <span id="cartSubtotal" class="font-semibold text-slate-900">RD$ 0.00</span>
+            </div>
+            <div class="flex justify-between text-slate-600 items-center">
+                <span>Descuento</span>
+                <span id="cartDiscount" class="font-semibold text-slate-900">RD$ 0.00</span>
+            </div>
+            <div class="pt-2 border-t border-slate-200 flex justify-between items-baseline">
+                <span class="text-sm font-bold text-slate-900">Total a Cobrar</span>
+                <span id="cartTotal" class="text-2xl font-black text-orange-600">RD$ 0.00</span>
+            </div>
+
+            <!-- Currency Quick conversion preview -->
+            <div class="text-[11px] text-slate-500 flex justify-between pt-1">
+                <span>Equivalente en USD:</span>
+                <span id="cartTotalUSD" class="font-mono font-medium">US$ 0.00</span>
+            </div>
+        </div>
+
+        <!-- Action / Checkout Buttons -->
+        <div class="p-4 border-t border-slate-100 bg-white grid grid-cols-2 gap-2">
+            <button type="button" onclick="openAmountSaleModal()" 
+                    class="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors">
+                <i data-lucide="scale" class="w-4 h-4 text-slate-500"></i>
+                <span>Venta por Monto</span>
+            </button>
+
+            <button type="button" onclick="openPaymentModal()" id="btnCheckout"
+                    class="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-extrabold rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm transition-all hover:shadow active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none">
+                <span>Cobrar</span>
+                <span class="kbd-badge bg-orange-700 text-white border-orange-500">F1</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAL: VENTA POR MONTO (FRACCIONADOS) ================= -->
+<div id="amountSaleModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                <i data-lucide="scale" class="w-5 h-5 text-orange-600"></i>
+                <span>Venta por Monto de Dinero</span>
+            </h3>
+            <button type="button" onclick="closeAmountSaleModal()" class="text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <p class="text-xs text-slate-500">
+            Ideal para colmados cuando el cliente pide: <em>"Deme RD$ 50 de salami"</em> o <em>"RD$ 100 de queso"</em>. 
+            El sistema calculará la cantidad fraccionada exacta según el precio por libra/litro.
+        </p>
+
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Seleccione Producto Fraccionado</label>
+                <select id="amountProductSelect" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:border-orange-500">
+                    {% for p in popular_products %}
+                    {% if p.allows_decimals %}
+                    <option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.sale_price }}" data-unit="{{ p.get_unit_of_measure_display }}" data-stock="{{ p.current_stock }}">
+                        {{ p.name }} - RD$ {{ p.sale_price|floatformat:2 }}/{{ p.get_unit_of_measure_display }}
+                    </option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Monto en Pesos a Vender (RD$)</label>
+                <input type="number" id="moneyAmountInput" step="1" min="1" placeholder="Ej. 50 o 100"
+                       class="w-full px-4 py-3 border border-slate-300 rounded-xl text-xl font-bold text-slate-900 focus:outline-none focus:border-orange-500 text-center"
+                       oninput="calculateFractionQuantity()">
+            </div>
+
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
+                <div class="flex justify-between">
+                    <span>Cantidad equivalente a despachar:</span>
+                    <strong id="fractionQtyResult" class="text-orange-600 font-bold text-sm">0.000 lb</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+            <button type="button" onclick="closeAmountSaleModal()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="button" onclick="confirmAmountSale()" class="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm">Agregar al Carrito</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAL: PAGO Y COBRO MULTIMÉTODO ================= -->
+<div id="paymentModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div>
+                <h3 class="font-bold text-slate-900 text-lg">Finalizar y Cobrar Venta</h3>
+                <p class="text-xs text-slate-500">Seleccione los métodos de pago y confirme la transacción</p>
+            </div>
+            <button type="button" onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Big Total Banner -->
+        <div class="bg-orange-50 border border-orange-200 p-4 rounded-xl text-center">
+            <span class="text-xs uppercase font-bold text-orange-600 tracking-wider">Total de la Venta</span>
+            <div id="modalTotalDOP" class="text-3xl font-black text-orange-700">RD$ 0.00</div>
+        </div>
+
+        <!-- Payment Method Tabs -->
+        <div class="grid grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-xl text-xs font-bold text-slate-600">
+            <button type="button" onclick="selectPaymentTab('EFECTIVO')" id="tab-EFECTIVO" class="pay-tab-btn py-2 rounded-lg transition-colors bg-white text-orange-600 shadow-xs">Efectivo</button>
+            <button type="button" onclick="selectPaymentTab('TARJETA')" id="tab-TARJETA" class="pay-tab-btn py-2 rounded-lg transition-colors hover:text-slate-900">Tarjeta</button>
+            <button type="button" onclick="selectPaymentTab('TRANSFERENCIA')" id="tab-TRANSFERENCIA" class="pay-tab-btn py-2 rounded-lg transition-colors hover:text-slate-900">Transf.</button>
+            <button type="button" onclick="selectPaymentTab('FIADO')" id="tab-FIADO" class="pay-tab-btn py-2 rounded-lg transition-colors hover:text-slate-900">Crédito</button>
+        </div>
+
+        <!-- Dynamic Payment Inputs based on selected method -->
+        <div id="paymentMethodContent" class="space-y-3">
+            <!-- Content injected dynamically by JS -->
+        </div>
+
+        <!-- Split Payment Add-on option -->
+        <div class="pt-2 border-t border-slate-100">
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                <input type="checkbox" id="splitPaymentCheckbox" onchange="toggleSplitPayment()" class="rounded border-slate-300 text-orange-600 focus:ring-orange-500">
+                <span>Habilitar Pago Dividido / Mixto (ej. Parte en Efectivo + Parte en Transferencia)</span>
+            </label>
+        </div>
+
+        <div id="splitPaymentContainer" class="hidden space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <p class="text-xs font-bold text-slate-700">Desglose de Pagos Combinados:</p>
+            <div id="splitLinesList" class="space-y-2"></div>
+            <div class="flex justify-between text-xs font-bold pt-2 border-t">
+                <span>Total asignado: <span id="splitAssigned" class="text-slate-900">RD$ 0.00</span></span>
+                <span>Restante: <span id="splitRemaining" class="text-rose-600">RD$ 0.00</span></span>
+            </div>
+        </div>
+
+        <!-- Confirm and Submit Button -->
+        <div class="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" onclick="closePaymentModal()" class="px-4 py-2.5 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="button" id="btnConfirmSale" onclick="submitSaleTransaction()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2">
+                <i data-lucide="check" class="w-4 h-4"></i>
+                <span>Confirmar Venta</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // --- ESTADO GLOBAL DEL POS ---
+    let cart = [];
+    const USD_RATE = {{ settings.usd_rate|default:"59.50" }};
+    const EUR_RATE = {{ settings.eur_rate|default:"64.00" }};
+    let currentPayTab = 'EFECTIVO';
+    let isSubmitting = false;
+
+    // --- CARGAR / FILTRAR PRODUCTOS ---
+    function filterByCategory(catId) {
+        document.querySelectorAll('.cat-filter-btn').forEach(btn => {
+            btn.className = "cat-filter-btn px-3 py-1.5 rounded-lg font-medium whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors";
+        });
+        const activeBtn = catId ? document.getElementById('cat-btn-' + catId) : document.getElementById('cat-btn-all');
+        if (activeBtn) activeBtn.className = "cat-filter-btn px-3 py-1.5 rounded-lg font-medium whitespace-nowrap bg-orange-600 text-white shadow-sm transition-colors";
+        fetchProducts('', catId);
+    }
+
+    const searchInput = document.getElementById('productSearchInput');
+    let searchDebounce = null;
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
+            fetchProducts(e.target.value.trim());
+        }, 250);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = e.target.value.trim();
+            if (val) {
+                // Escaneo directo de código de barras
+                fetch(`/pos/api/productos/buscar/?q=${encodeURIComponent(val)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.products && data.products.length > 0) {
+                            const p = data.products[0];
+                            addProductToCart(p.id, p.name, parseFloat(p.sale_price), parseFloat(p.current_stock), p.sale_type, p.unit_of_measure, p.allows_decimals);
+                            searchInput.value = '';
+                        }
+                    });
+            }
+        }
+    });
+
+    function fetchProducts(query = '', categoryId = '') {
+        let url = `/pos/api/productos/buscar/?q=${encodeURIComponent(query)}`;
+        if (categoryId) url += `&categoria=${encodeURIComponent(categoryId)}`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const grid = document.getElementById('productsGrid');
+                grid.innerHTML = '';
+                if (!data.products || data.products.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400 text-sm">
+                        <i data-lucide="package-search" class="w-10 h-10 mx-auto mb-2 stroke-1"></i>
+                        No se encontraron productos.
+                    </div>`;
+                    lucide.createIcons();
+                    return;
+                }
+
+                data.products.forEach(p => {
+                    const stock = parseFloat(p.current_stock);
+                    const isOut = stock <= 0;
+                    const isLow = stock > 0 && stock <= 5;
+                    const allowsDec = p.allows_decimals;
+
+                    const card = document.createElement('div');
+                    card.className = "group relative bg-white border border-slate-200 rounded-xl p-3 flex flex-col justify-between cursor-pointer hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98]";
+                    card.onclick = () => addProductToCart(p.id, p.name, parseFloat(p.sale_price), stock, p.sale_type, p.unit_of_measure, allowsDec);
+
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex items-start justify-between gap-1 mb-1.5">
+                                <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">${p.unit_of_measure}</span>
+                                ${isOut ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600">Agotado</span>' : (isLow ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-600">Bajo</span>' : '')}
+                            </div>
+                            <h4 class="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-600 transition-colors">${p.name}</h4>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-extrabold text-slate-900">RD$ ${parseFloat(p.sale_price).toFixed(2)}</span>
+                                <span class="text-[10px] text-slate-400 block">/ ${p.unit_of_measure}</span>
+                            </div>
+                            <span class="text-[11px] font-semibold text-slate-500">Stock: ${stock.toFixed(allowsDec ? 2 : 0)}</span>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+                lucide.createIcons();
+            });
+    }
+
+    // --- CARRITO DE VENTAS ---
+    function addProductToCart(id, name, price, stock, saleType, unitLabel, allowsDec, customQty = null) {
+        const existing = cart.find(item => item.id === id);
+        const qtyToAdd = customQty !== null ? customQty : (allowsDec ? 1.0 : 1);
+
+        if (existing) {
+            existing.quantity = Math.round((existing.quantity + qtyToAdd) * 1000) / 1000;
+        } else {
+            cart.push({
+                id: id,
+                name: name,
+                unit_price: price,
+                quantity: qtyToAdd,
+                discount: 0,
+                stock: stock,
+                sale_type: saleType,
+                unit_label: unitLabel,
+                allows_decimals: allowsDec,
+            });
+        }
+        renderCart();
+    }
+
+    function updateItemQty(index, newQty) {
+        newQty = parseFloat(newQty);
+        if (isNaN(newQty) || newQty <= 0) {
+            cart.splice(index, 1);
+        } else {
+            const item = cart[index];
+            if (!item.allows_decimals) {
+                newQty = Math.floor(newQty);
+            }
+            item.quantity = Math.round(newQty * 1000) / 1000;
+        }
+        renderCart();
+    }
+
+    function removeItem(index) {
+        cart.splice(index, 1);
+        renderCart();
+    }
+
+    function clearCart() {
+        if (cart.length === 0) return;
+        showConfirmModal({
+            title: '¿Vaciar carrito?',
+            message: '¿Desea vaciar todos los artículos agregados a la venta actual?',
+            confirmText: 'Sí, vaciar',
+            cancelText: 'Cancelar',
+            type: 'danger',
+            icon: 'trash-2',
+            onConfirm: () => {
+                cart = [];
+                renderCart();
+                showToast('Carrito vaciado', 'info');
+            }
+        });
+    }
+
+    function renderCart() {
+        const container = document.getElementById('cartItemsList');
+        const emptyMsg = document.getElementById('emptyCartMessage');
+        const btnCheckout = document.getElementById('btnCheckout');
+
+        if (cart.length === 0) {
+            container.innerHTML = '';
+            container.appendChild(emptyMsg);
+            emptyMsg.classList.remove('hidden');
+            document.getElementById('cartSubtotal').innerText = 'RD$ 0.00';
+            document.getElementById('cartDiscount').innerText = 'RD$ 0.00';
+            document.getElementById('cartTotal').innerText = 'RD$ 0.00';
+            document.getElementById('cartTotalUSD').innerText = 'US$ 0.00';
+            btnCheckout.disabled = true;
+            return;
+        }
+
+        emptyMsg.classList.add('hidden');
+        container.innerHTML = '';
+
+        let subtotal = 0;
+        let discount = 0;
+
+        cart.forEach((item, index) => {
+            const lineSub = item.quantity * item.unit_price;
+            subtotal += lineSub;
+            discount += item.discount;
+
+            const itemEl = document.createElement('div');
+            itemEl.className = "py-2 flex items-center justify-between gap-2 text-xs";
+            itemEl.innerHTML = `
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-slate-800 truncate">${item.name}</p>
+                    <p class="text-[11px] text-slate-400">RD$ ${item.unit_price.toFixed(2)} / ${item.unit_label}</p>
+                </div>
+
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button type="button" onclick="updateItemQty(${index}, ${item.quantity - (item.allows_decimals ? 0.5 : 1)})" 
+                            class="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold">-</button>
+                    <input type="number" step="${item.allows_decimals ? '0.05' : '1'}" min="0.01" value="${item.quantity}"
+                           onchange="updateItemQty(${index}, this.value)"
+                           class="w-14 px-1 py-1 text-center font-bold text-slate-900 border border-slate-200 rounded focus:outline-none focus:border-orange-500">
+                    <button type="button" onclick="updateItemQty(${index}, ${item.quantity + (item.allows_decimals ? 0.5 : 1)})"
+                            class="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold">+</button>
+                </div>
+
+                <div class="w-20 text-right shrink-0">
+                    <p class="font-bold text-slate-900">RD$ ${lineSub.toFixed(2)}</p>
+                    <button type="button" onclick="removeItem(${index})" class="text-[10px] text-rose-500 hover:underline">Eliminar</button>
+                </div>
+            `;
+            container.appendChild(itemEl);
+        });
+
+        const total = subtotal - discount;
+        document.getElementById('cartSubtotal').innerText = 'RD$ ' + subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('cartDiscount').innerText = 'RD$ ' + discount.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('cartTotal').innerText = 'RD$ ' + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        
+        const totalUSD = total / USD_RATE;
+        document.getElementById('cartTotalUSD').innerText = 'US$ ' + totalUSD.toFixed(2);
+        btnCheckout.disabled = false;
+        lucide.createIcons();
+    }
+
+    function getCartTotal() {
+        let total = 0;
+        cart.forEach(item => {
+            total += (item.quantity * item.unit_price) - item.discount;
+        });
+        return Math.round(total * 100) / 100;
+    }
+
+    // --- MODAL: VENTA POR MONTO ---
+    function openAmountSaleModal() {
+        document.getElementById('amountSaleModal').classList.remove('hidden');
+        document.getElementById('moneyAmountInput').value = '';
+        document.getElementById('fractionQtyResult').innerText = '0.000 lb';
+        setTimeout(() => document.getElementById('moneyAmountInput').focus(), 100);
+    }
+
+    function closeAmountSaleModal() {
+        document.getElementById('amountSaleModal').classList.add('hidden');
+    }
+
+    function calculateFractionQuantity() {
+        const select = document.getElementById('amountProductSelect');
+        const selectedOpt = select.options[select.selectedIndex];
+        if (!selectedOpt) return;
+
+        const price = parseFloat(selectedOpt.dataset.price);
+        const unit = selectedOpt.dataset.unit;
+        const amount = parseFloat(document.getElementById('moneyAmountInput').value) || 0;
+
+        if (price > 0 && amount > 0) {
+            const qty = (amount / price).toFixed(3);
+            document.getElementById('fractionQtyResult').innerText = `${qty} ${unit}`;
+        } else {
+            document.getElementById('fractionQtyResult').innerText = `0.000 ${unit}`;
+        }
+    }
+
+    function confirmAmountSale() {
+        const select = document.getElementById('amountProductSelect');
+        const selectedOpt = select.options[select.selectedIndex];
+        if (!selectedOpt) return;
+
+        const pId = parseInt(selectedOpt.value);
+        const pName = selectedOpt.dataset.name;
+        const price = parseFloat(selectedOpt.dataset.price);
+        const unit = selectedOpt.dataset.unit;
+        const stock = parseFloat(selectedOpt.dataset.stock);
+        const amount = parseFloat(document.getElementById('moneyAmountInput').value) || 0;
+
+        if (amount <= 0) {
+            showToast("Ingrese un monto válido en pesos.", "warning");
+            return;
+        }
+
+        const calculatedQty = Math.round((amount / price) * 1000) / 1000;
+        addProductToCart(pId, pName, price, stock, 'FRACTION', unit, true, calculatedQty);
+        closeAmountSaleModal();
+    }
+
+    // --- MODAL: PAGO Y COBRO ---
+    function openPaymentModal() {
+        if (cart.length === 0) return;
+        const total = getCartTotal();
+        document.getElementById('modalTotalDOP').innerText = 'RD$ ' + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('paymentModal').classList.remove('hidden');
+        selectPaymentTab(currentPayTab);
+    }
+
+    function closePaymentModal() {
+        document.getElementById('paymentModal').classList.add('hidden');
+    }
+
+    function selectPaymentTab(tabName) {
+        currentPayTab = tabName;
+        document.querySelectorAll('.pay-tab-btn').forEach(btn => {
+            btn.className = "pay-tab-btn py-2 rounded-lg transition-colors hover:text-slate-900";
+        });
+        const active = document.getElementById('tab-' + tabName);
+        if (active) active.className = "pay-tab-btn py-2 rounded-lg transition-colors bg-white text-orange-600 shadow-xs";
+
+        const total = getCartTotal();
+        const content = document.getElementById('paymentMethodContent');
+
+        if (tabName === 'EFECTIVO') {
+            content.innerHTML = `
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Moneda Recibida</label>
+                            <select id="cashCurrencySelect" onchange="calculateCashChange()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:outline-none focus:border-orange-500">
+                                <option value="DOP">Pesos Dominicanos (RD$)</option>
+                                <option value="USD">Dólares (US$ a tasa ${USD_RATE.toFixed(2)})</option>
+                                <option value="EUR">Euros (€ a tasa ${EUR_RATE.toFixed(2)})</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Monto Entregado</label>
+                            <input type="number" id="cashReceivedInput" step="1" value="${Math.ceil(total)}" oninput="calculateCashChange()"
+                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold text-slate-900 text-center focus:outline-none focus:border-orange-500">
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs font-bold text-emerald-800">
+                        <span>Devuelta / Cambio a Entregar:</span>
+                        <span id="cashChangeDisplay" class="text-lg font-black text-emerald-700">RD$ 0.00</span>
+                    </div>
+                </div>
+            `;
+            calculateCashChange();
+        } else if (tabName === 'TARJETA') {
+            content.innerHTML = `
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold text-slate-700">Número de Aprobación / Lote (Opcional)</label>
+                    <input type="text" id="cardRefInput" placeholder="Ej. Aprob #482910 o últimos 4 dígitos"
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-orange-500">
+                    <p class="text-[11px] text-slate-400">El total de RD$ ${total.toFixed(2)} se cobrará a través del punto de venta (verifone).</p>
+                </div>
+            `;
+        } else if (tabName === 'TRANSFERENCIA') {
+            content.innerHTML = `
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold text-slate-700">Referencia de Transferencia Bancaria</label>
+                    <input type="text" id="transferRefInput" placeholder="Ej. Banreservas #9021 o BHD #334"
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-orange-500">
+                    <p class="text-[11px] text-slate-400">Verifique el comprobante en su banca en línea antes de entregar la mercancía.</p>
+                </div>
+            `;
+        } else if (tabName === 'FIADO') {
+            const custSelect = document.getElementById('customerSelect');
+            const custId = custSelect.value;
+            const selectedOpt = custSelect.options[custSelect.selectedIndex];
+
+            if (!custId) {
+                content.innerHTML = `
+                    <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs space-y-2">
+                        <p class="font-bold">⚠️ Debe seleccionar un cliente para registrar una venta a crédito.</p>
+                        <p>Seleccione un cliente registrado en la parte superior del ticket para verificar su cuenta y límite disponible.</p>
+                    </div>
+                `;
+            } else {
+                const bal = parseFloat(selectedOpt.dataset.balance) || 0;
+                const limit = parseFloat(selectedOpt.dataset.limit) || 0;
+                const avail = parseFloat(selectedOpt.dataset.avail) || 0;
+                const exceeds = (bal + total) > limit;
+
+                content.innerHTML = `
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1 text-xs text-blue-900">
+                        <div class="flex justify-between"><span>Cliente:</span> <strong>${selectedOpt.text.split(' - ')[0]}</strong></div>
+                        <div class="flex justify-between"><span>Saldo actual pendiente:</span> <strong>RD$ ${bal.toFixed(2)}</strong></div>
+                        <div class="flex justify-between"><span>Límite autorizado:</span> <strong>RD$ ${limit.toFixed(2)}</strong></div>
+                        <div class="flex justify-between"><span>Crédito disponible:</span> <strong class="${avail >= total ? 'text-emerald-700' : 'text-rose-600'}">RD$ ${avail.toFixed(2)}</strong></div>
+                    </div>
+                    ${exceeds ? '<p class="text-xs text-rose-600 font-bold">⚠️ Esta venta excede el límite de crédito disponible del cliente.</p>' : ''}
+                `;
+            }
+        }
+    }
+
+    function calculateCashChange() {
+        const total = getCartTotal();
+        const curr = document.getElementById('cashCurrencySelect')?.value || 'DOP';
+        const rawRec = parseFloat(document.getElementById('cashReceivedInput')?.value) || 0;
+
+        let recInDop = rawRec;
+        if (curr === 'USD') recInDop = rawRec * USD_RATE;
+        if (curr === 'EUR') recInDop = rawRec * EUR_RATE;
+
+        const change = recInDop - total;
+        const changeEl = document.getElementById('cashChangeDisplay');
+        if (changeEl) {
+            changeEl.innerText = change >= 0 ? ('RD$ ' + change.toFixed(2)) : 'RD$ 0.00 (Faltante)';
+            changeEl.className = change >= 0 ? "text-lg font-black text-emerald-700" : "text-lg font-black text-rose-600";
+        }
+    }
+
+    // --- ENVIAR TRANSACCIÓN ATÓMICA DE VENTA AL SERVIDOR ---
+    function submitSaleTransaction() {
+        if (isSubmitting) return;
+        if (cart.length === 0) return;
+
+        const total = getCartTotal();
+        const customerId = document.getElementById('customerSelect').value || null;
+
+        // Construir items
+        const itemsPayload = cart.map(i => ({
+            product_id: i.id,
+            quantity: i.quantity,
+            discount: i.discount || 0,
+        }));
+
+        // Construir pagos
+        let paymentsPayload = [];
+        let currencyReceived = 'DOP';
+        let amountReceived = total;
+
+        const splitCheckbox = document.getElementById('splitPaymentCheckbox');
+        if (splitCheckbox && splitCheckbox.checked) {
+            // Pagos divididos
+            paymentsPayload = collectSplitPayments();
+        } else {
+            // Pago único
+            if (currentPayTab === 'EFECTIVO') {
+                currencyReceived = document.getElementById('cashCurrencySelect')?.value || 'DOP';
+                amountReceived = parseFloat(document.getElementById('cashReceivedInput')?.value) || total;
+                paymentsPayload.push({ method: 'EFECTIVO', amount: total, reference: '' });
+            } else if (currentPayTab === 'TARJETA') {
+                const ref = document.getElementById('cardRefInput')?.value || '';
+                paymentsPayload.push({ method: 'TARJETA', amount: total, reference: ref });
+            } else if (currentPayTab === 'TRANSFERENCIA') {
+                const ref = document.getElementById('transferRefInput')?.value || '';
+                paymentsPayload.push({ method: 'TRANSFERENCIA', amount: total, reference: ref });
+            } else if (currentPayTab === 'FIADO') {
+                if (!customerId) {
+                    showToast("Para vender a crédito debe seleccionar un cliente.", "warning");
+                    return;
+                }
+                paymentsPayload.push({ method: 'FIADO', amount: total, reference: 'Venta a crédito' });
+            }
+        }
+
+        const payload = {
+            items: itemsPayload,
+            payments: paymentsPayload,
+            customer_id: customerId,
+            currency: currencyReceived,
+            amount_received: amountReceived,
+            notes: '',
+        };
+
+        const btnConfirm = document.getElementById('btnConfirmSale');
+        btnConfirm.disabled = true;
+        btnConfirm.innerText = "Procesando venta...";
+        isSubmitting = true;
+
+        fetch('/pos/api/crear-venta/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cart = [];
+                renderCart();
+                closePaymentModal();
+                // Redirigir directamente al recibo para impresión térmica
+                window.location.href = data.receipt_url;
+            } else {
+                showToast("Error al procesar la venta: " + data.error, "error");
+                btnConfirm.disabled = false;
+                btnConfirm.innerText = "Confirmar Venta";
+                isSubmitting = false;
+            }
+        })
+        .catch(err => {
+            showToast("Error de conexión: " + err, "error");
+            btnConfirm.disabled = false;
+            btnConfirm.innerText = "Confirmar Venta";
+            isSubmitting = false;
+        });
+    }
+
+    // --- TECLAS RÁPIDAS (F1-F4, ESC) ---
+    window.addEventListener('keydown', (e) => {
+        // Evitar interceptar si se está escribiendo en un input
+        const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+
+        if (e.key === 'F1') {
+            e.preventDefault();
+            if (cart.length > 0) openPaymentModal();
+        } else if (e.key === 'F2') {
+            e.preventDefault();
+            if (cart.length > 0) {
+                openPaymentModal();
+                selectPaymentTab('FIADO');
+            }
+        } else if (e.key === 'F3') {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+        } else if (e.key === 'F4') {
+            e.preventDefault();
+            document.getElementById('customerSelect').focus();
+        } else if (e.key === 'Escape') {
+            closePaymentModal();
+            closeAmountSaleModal();
+        }
+    });
+
+    // Helper CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

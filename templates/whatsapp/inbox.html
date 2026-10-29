@@ -1,0 +1,1195 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}WhatsApp Business POS & Pedidos{% endblock %}
+
+{% block content %}
+<div class="h-[calc(100vh-76px)] sm:h-[calc(100vh-96px)] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+
+  <!-- Header Superior de la Bandeja -->
+  <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+        <i data-lucide="message-circle" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-slate-900 text-base leading-tight">WhatsApp Business & Pedidos</h1>
+        <p class="text-xs text-slate-500">Recepción de pedidos, ventas de contado, créditos, abonos y delivery</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2.5">
+      <a href="{% url 'whatsapp_config' %}" class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition inline-flex items-center gap-1.5 shadow-2xs">
+        <i data-lucide="settings" class="w-3.5 h-3.5 text-slate-500"></i>
+        <span>Configuración WAHA / Meta</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Cuerpo Dividido en 2 Columnas -->
+  <div class="flex-1 flex min-h-0 overflow-hidden">
+
+    <!-- Columna Izquierda: Lista de Conversaciones -->
+    <div class="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-white shrink-0 {% if selected_conv %}hidden md:flex{% endif %}">
+      <!-- Buscador y Filtro -->
+      <div class="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
+        <form method="get" class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+          <input type="text" name="q" value="{{ search_query }}" placeholder="Buscar cliente o teléfono..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-orange-500">
+        </form>
+
+        <div class="flex items-center justify-between text-xs text-slate-500 px-1 font-medium">
+          <span>Conversaciones activas</span>
+          <span>{{ conversations|length }} chats</span>
+        </div>
+      </div>
+
+      <!-- Lista Scrollable de Chats -->
+      <div id="conversationsListContainer" class="flex-1 overflow-y-auto divide-y divide-slate-100">
+        {% for conv in conversations %}
+        <a href="?chat={{ conv.id }}{% if status_filter %}&estado={{ status_filter }}{% endif %}" data-conv-id="{{ conv.id }}" class="block p-3 hover:bg-slate-100/80 transition relative {% if selected_conv and selected_conv.id == conv.id %}bg-orange-50/60 border-l-4 border-orange-600{% endif %}">
+          <div class="flex items-start justify-between gap-2 overflow-hidden">
+            <div class="flex-1 min-w-0 overflow-hidden">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 text-xs truncate block max-w-full">
+                  {{ conv.contact.display_name|default:conv.contact.phone }}
+                </span>
+                {% if conv.contact.customer %}
+                  <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 shrink-0">
+                    Cliente
+                  </span>
+                {% else %}
+                  <span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 shrink-0">
+                    Nuevo
+                  </span>
+                {% endif %}
+              </div>
+              <div class="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                {{ conv.contact.phone }}
+              </div>
+              <p class="conv-preview text-xs text-slate-500 truncate block w-full mt-1 whitespace-nowrap overflow-hidden text-ellipsis" title="{{ conv.last_message_preview }}">
+                {{ conv.last_message_preview }}
+              </p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <span class="conv-time text-[10px] text-slate-400 block">
+                {{ conv.last_message_at|date:"d/m H:i" }}
+              </span>
+              <div class="conv-unread-box">
+                {% if conv.unread_count > 0 %}
+                  <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold mt-1">
+                    {{ conv.unread_count }}
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </a>
+        {% empty %}
+        <div class="p-8 text-center text-slate-400 text-xs">
+          No hay conversaciones activas
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Columna Derecha: Ventana de Conversación Activa -->
+    <div class="flex-1 flex flex-col bg-slate-100 min-h-0 relative {% if not selected_conv %}hidden md:flex{% endif %}">
+      {% if selected_conv %}
+      <!-- Cabecera del Chat Activo -->
+      <div class="p-3 sm:p-3.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+          <!-- Botón Volver a la lista de chats en móviles -->
+          <a href="{% url 'whatsapp_inbox' %}" class="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 flex items-center justify-center shrink-0 transition-colors" title="Volver a los chats">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+          </a>
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs sm:text-sm shadow-xs shrink-0">
+            {{ selected_conv.contact.display_name|first|default:"C" }}
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="headerContactName" class="font-bold text-slate-900 text-sm">
+                {{ selected_conv.contact.display_name|default:selected_conv.contact.phone }}
+              </h2>
+              {% if selected_conv.contact.customer %}
+                <span id="headerCustomerBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Cliente Registrado
+                </span>
+              {% else %}
+                <span id="headerCustomerBadge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                  Sin Nombre en Agenda
+                </span>
+              {% endif %}
+
+              <!-- Botón Registrar Cliente / Asignar Nombre -->
+              <button type="button" onclick="openRegisterCustomerModal()" title="Registrar o actualizar datos del cliente" class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline flex items-center gap-1 ml-1">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                <span>{% if selected_conv.contact.customer %}Editar Cliente{% else %}Asignar Nombre{% endif %}</span>
+              </button>
+            </div>
+            <div class="text-xs text-slate-500 font-mono flex items-center gap-2 mt-0.5">
+              <span>{{ selected_conv.contact.phone }}</span>
+              <span id="headerBalanceContainer" class="{% if not selected_conv.contact.customer %}hidden{% endif %}">
+                • Cuentas por Cobrar: <strong id="headerBalanceValue" class="{% if selected_conv.contact.customer and selected_conv.contact.customer.current_balance > 0 %}text-rose-600 font-extrabold{% else %}text-emerald-600 font-extrabold{% endif %}">RD$ {{ selected_conv.contact.customer.current_balance|default:"0.00"|floatformat:2 }}</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Acciones Rápidas del Chat: Contado, Crédito, Abonar -->
+        <div class="flex items-center flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
+          <!-- BOTÓN 1: CONTADO -->
+          <button type="button" onclick="openWhatsAppSaleModal('CONTADO')" id="btnContado" class="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition inline-flex items-center gap-1.5 focus:ring-2 focus:ring-emerald-400">
+            <i data-lucide="dollar-sign" class="w-3.5 h-3.5"></i>
+            <span>Contado</span>
+          </button>
+
+          <!-- BOTÓN 2: CRÉDITO -->
+          <button type="button" onclick="openWhatsAppSaleModal('CREDITO')" id="btnCredito" class="px-3.5 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-xl shadow-xs transition inline-flex items-center gap-1.5 focus:ring-2 focus:ring-amber-400">
+            <i data-lucide="credit-card" class="w-3.5 h-3.5"></i>
+            <span>Crédito</span>
+          </button>
+
+          <!-- BOTÓN 3: ABONAR -->
+          <button type="button" onclick="openWhatsAppAbonoModal()" id="btnAbonar" class="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition inline-flex items-center gap-1.5 focus:ring-2 focus:ring-blue-400">
+            <i data-lucide="wallet" class="w-3.5 h-3.5"></i>
+            <span>Abonar</span>
+          </button>
+
+          <!-- Botón Estado de Cuenta -->
+          <div id="btnEstadoCuentaContainer" class="{% if not selected_conv.contact.customer %}hidden{% else %}inline{% endif %}">
+            <form method="post" action="{% url 'whatsapp_send_message' selected_conv.id %}" class="inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="send_balance">
+              <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition inline-flex items-center gap-1 shadow-2xs">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Estado de Cuenta</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Botón Ver Historial CxC -->
+          <a id="btnLibretaLink" href="{% if selected_conv.contact.customer %}{% url 'customer_detail' selected_conv.contact.customer.id %}{% else %}#{% endif %}" target="_blank" class="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition inline-flex items-center gap-1 {% if not selected_conv.contact.customer %}hidden{% endif %}">
+            <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+            <span>Historial CxC</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Feed de Mensajes -->
+      <div id="chatMessagesFeed" data-chat-id="{{ selected_conv.id|default:'' }}" class="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]">
+        {% for msg in messages_list %}
+        <div class="flex flex-col {% if msg.direction == 'OUTBOUND' %}items-end{% else %}items-start{% endif %}" data-msg-id="{{ msg.id }}">
+          <div class="max-w-[88%] sm:max-w-[75%] rounded-2xl px-3.5 sm:px-4 py-2.5 shadow-2xs text-xs {% if msg.direction == 'OUTBOUND' %}bg-emerald-700 text-white rounded-br-none{% else %}bg-white text-slate-800 rounded-bl-none border border-slate-200{% endif %}">
+            <p class="whitespace-pre-line leading-relaxed">{{ msg.text_content }}</p>
+            <div class="flex items-center justify-end gap-1.5 mt-1.5 text-[10px] {% if msg.direction == 'OUTBOUND' %}text-emerald-200{% else %}text-slate-400{% endif %}">
+              <span>{{ msg.created_at|date:"h:i A" }}</span>
+              {% if msg.direction == 'OUTBOUND' %}
+                <span class="status-indicator">
+                {% if msg.status == 'read' %}
+                  <i data-lucide="check-check" class="w-3 h-3 text-cyan-300"></i>
+                {% elif msg.status == 'delivered' %}
+                  <i data-lucide="check-check" class="w-3 h-3 text-emerald-200"></i>
+                {% elif msg.status == 'sent' %}
+                  <i data-lucide="check" class="w-3 h-3 text-emerald-200"></i>
+                {% elif msg.status == 'failed' %}
+                  <i data-lucide="alert-circle" class="w-3 h-3 text-rose-300" title="{{ msg.error_message }}"></i>
+                {% else %}
+                  <i data-lucide="clock" class="w-3 h-3 text-emerald-300"></i>
+                {% endif %}
+                </span>
+              {% endif %}
+            </div>
+          </div>
+          {% if msg.status == 'failed' and msg.error_message %}
+          <div class="text-[10px] text-rose-500 font-mono mt-0.5 max-w-[75%] text-right">
+            Nota de entrega: {{ msg.error_message }}
+          </div>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div id="noMessagesPlaceholder" class="flex items-center justify-center h-full text-slate-400 text-xs">
+          No hay mensajes en esta conversación
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Redactor de Respuesta Conversacional -->
+      <div class="p-3 bg-white border-t border-slate-200">
+        <!-- Helper Pill para comandos de libreta -->
+        <div id="commandHelperPill" class="hidden mb-2 p-2.5 rounded-xl border text-xs flex items-center justify-between transition-all duration-200">
+          <div class="flex items-center gap-2 min-w-0">
+            <span id="commandHelperBadge" class="px-2 py-0.5 rounded font-bold text-[10px] tracking-wide uppercase shrink-0"></span>
+            <span id="commandHelperText" class="font-medium truncate"></span>
+          </div>
+          <span class="text-[10px] text-slate-400 shrink-0 font-medium">Presiona Enviar</span>
+        </div>
+
+        <form id="chatMessageForm" method="post" action="{% url 'whatsapp_send_message' selected_conv.id %}" class="flex items-center gap-2">
+          {% csrf_token %}
+          <input type="text" id="chatMessageInput" name="message_text" placeholder="Escribe un mensaje o comando (ej: Abonar 500, Crédito 200 arroz)..." required autocomplete="off" class="flex-1 min-w-0 px-3 sm:px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-none transition">
+          <button type="submit" id="btnSendChat" class="px-3 sm:px-4 py-2 text-xs font-semibold text-white bg-orange-600 rounded-xl hover:bg-orange-700 transition inline-flex items-center gap-1.5 shadow-xs shrink-0">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span id="btnSendChatText">Enviar</span>
+          </button>
+        </form>
+      </div>
+
+      {% else %}
+      <!-- Estado Vacío Cuando no hay chat seleccionado -->
+      <div class="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+        <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
+          <i data-lucide="messages-square" class="w-8 h-8 text-slate-300"></i>
+        </div>
+        <h3 class="font-bold text-slate-700 text-sm">Selecciona una conversación</h3>
+        <p class="text-xs text-slate-500 max-w-sm mt-1">
+          Elige una conversación del panel izquierdo para consultar pedidos, registrar ventas o enviar mensajes.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+{% if selected_conv %}
+<!-- ============================================================================== -->
+<!-- MODAL 1: REGISTRAR VENTA DE WHATSAPP (CONTADO / CRÉDITO) -->
+<!-- ============================================================================== -->
+<div id="whatsAppSaleModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity">
+  <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all max-h-[92vh] flex flex-col">
+    <div id="saleModalHeader" class="p-3.5 sm:p-4 border-b flex items-start justify-between bg-emerald-50 border-emerald-100 shrink-0">
+      <div class="flex items-center gap-3">
+        <div id="saleModalIconBox" class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-xs shrink-0">
+          <i id="saleModalIcon" data-lucide="dollar-sign" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 id="saleModalTitle" class="text-base font-bold text-slate-900">Registrar Venta Contado</h3>
+          <p id="saleModalSubtitle" class="text-xs text-slate-500 mt-0.5">
+            Cliente: {{ selected_conv.contact.display_name|default:selected_conv.contact.phone }}
+          </p>
+        </div>
+      </div>
+      <button type="button" onclick="closeWhatsAppSaleModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <form id="whatsAppSaleForm" onsubmit="submitWhatsAppSale(event)" class="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1 overscroll-contain">
+      <input type="hidden" name="sale_type" id="saleModalTypeInput" value="CONTADO">
+
+      <!-- Monto Confirmado por el Colmadero -->
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">
+          Importe Total Confirmado (RD$) *
+        </label>
+        <div class="relative">
+          <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 font-mono pointer-events-none select-none">RD$</span>
+          <input type="number" step="0.01" min="0.01" id="saleAmountInput" required placeholder="0.00" class="w-full pl-14 pr-4 py-2.5 text-xl font-bold font-mono text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        </div>
+      </div>
+
+      <!-- Detalle de Artículos / Pedido -->
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Artículos del Pedido / Observaciones</label>
+        <textarea id="saleNotesInput" rows="1" placeholder="Ej. 10 de sal, azúcar, pan de agua..." class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-none resize-none"></textarea>
+      </div>
+
+      <!-- Métodos de Pago para Venta Contado -->
+      <div id="contadoPaymentSection">
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">Método de Pago (Contado)</label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="flex flex-col items-center py-2 px-1.5 border rounded-xl cursor-pointer text-center transition border-emerald-500 bg-emerald-50/50" id="optEfectivo">
+            <input type="radio" name="payment_method" value="EFECTIVO" checked class="sr-only" onchange="selectContadoMethod('EFECTIVO')">
+            <i data-lucide="banknote" class="w-4 h-4 text-emerald-600 mb-0.5"></i>
+            <span class="text-xs font-bold text-slate-900">Efectivo</span>
+            <span class="text-[9px] text-slate-500">Suma a Caja</span>
+          </label>
+
+          <label class="flex flex-col items-center py-2 px-1.5 border border-slate-200 rounded-xl cursor-pointer text-center transition hover:bg-slate-50" id="optTransf">
+            <input type="radio" name="payment_method" value="TRANSFERENCIA" class="sr-only" onchange="selectContadoMethod('TRANSFERENCIA')">
+            <i data-lucide="arrow-left-right" class="w-4 h-4 text-blue-600 mb-0.5"></i>
+            <span class="text-xs font-bold text-slate-900">Transferencia</span>
+            <span class="text-[9px] text-slate-500">Banco</span>
+          </label>
+
+          <label class="flex flex-col items-center py-2 px-1.5 border border-slate-200 rounded-xl cursor-pointer text-center transition hover:bg-slate-50" id="optTarjeta">
+            <input type="radio" name="payment_method" value="TARJETA" class="sr-only" onchange="selectContadoMethod('TARJETA')">
+            <i data-lucide="credit-card" class="w-4 h-4 text-purple-600 mb-0.5"></i>
+            <span class="text-xs font-bold text-slate-900">Tarjeta</span>
+            <span class="text-[9px] text-slate-500">POS / Boucher</span>
+          </label>
+        </div>
+
+        <!-- Campo Referencia Bancaria o de Tarjeta -->
+        <div id="referenceFieldWrapper" class="hidden mt-2">
+          <label class="block text-[11px] font-semibold text-slate-700 mb-1">Número de Referencia / Autorización</label>
+          <input type="text" id="saleReferenceInput" placeholder="Ej. Ref #981240 o boucher..." class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-orange-500 focus:outline-none">
+        </div>
+      </div>
+
+      <!-- Sección Destino del Pedido (Directo vs Delivery Express) -->
+      <div class="pt-2 border-t border-slate-100">
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">Destino de Entrega del Pedido</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center justify-center gap-2 py-2 px-2.5 border rounded-xl cursor-pointer transition border-orange-500 bg-orange-50/40 text-xs font-bold text-slate-900 text-center" id="optDestDirecto">
+            <input type="radio" name="destination_type" value="DIRECTO" checked onchange="toggleDestinationType('DIRECTO')" class="sr-only">
+            <i data-lucide="store" class="w-3.5 h-3.5 text-orange-600 shrink-0"></i>
+            <span>Entrega Directa</span>
+          </label>
+
+          <label class="flex items-center justify-center gap-2 py-2 px-2.5 border border-slate-200 rounded-xl cursor-pointer transition hover:bg-slate-50 text-xs font-bold text-slate-700 text-center" id="optDestExpress">
+            <input type="radio" name="destination_type" value="EXPRESS" onchange="toggleDestinationType('EXPRESS')" class="sr-only">
+            <i data-lucide="bike" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
+            <span>Delivery Express</span>
+          </label>
+        </div>
+
+        <!-- Opciones de Delivery Express (Repartidor y Dirección) -->
+        <div id="expressDeliveryDetails" class="hidden mt-2.5 p-2.5 rounded-xl bg-amber-50/60 border border-amber-200 space-y-2">
+          <div>
+            <label class="block text-[11px] font-bold text-amber-900 mb-0.5">Asignar Repartidor (Opcional)</label>
+            <select id="saleDeliveryPersonSelect" class="w-full text-xs bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:ring-1 focus:ring-orange-500">
+              <option value="">-- Dejar pendiente de asignación --</option>
+              {% for dp in delivery_persons %}
+              <option value="{{ dp.id }}">{{ dp.name }} ({{ dp.vehicle|default:"Motor" }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-amber-900 mb-0.5">Dirección de Entrega</label>
+            <input type="text" id="saleDeliveryAddressInput" value="{{ selected_conv.contact.customer.address|default:'' }}" placeholder="Calle, número de casa, sector..." class="w-full px-2.5 py-1.5 text-xs bg-white border border-amber-300 rounded-lg text-slate-800 focus:ring-1 focus:ring-orange-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 shrink-0">
+        <button type="button" onclick="closeWhatsAppSaleModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+          Cancelar
+        </button>
+        <button type="submit" id="btnSubmitSaleModal" class="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition flex items-center gap-1.5">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span id="btnSubmitSaleText">Confirmar y Registrar Venta</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================================== -->
+<!-- MODAL 2: ABONAR CON 3 MÉTODOS DE PAGO (EFECTIVO, TRANSFERENCIA, TARJETA) -->
+<!-- ============================================================================== -->
+<div id="whatsAppAbonoModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity">
+  <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+    <div class="p-4 border-b flex items-start justify-between bg-blue-50 border-blue-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-xs">
+          <i data-lucide="wallet" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Registrar Abono a Cuenta</h3>
+          <p class="text-xs text-slate-500 mt-0.5">
+            {{ selected_conv.contact.display_name|default:selected_conv.contact.phone }}
+          </p>
+        </div>
+      </div>
+      <button type="button" onclick="closeWhatsAppAbonoModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <form id="whatsAppAbonoForm" onsubmit="submitWhatsAppAbono(event)" class="p-5 space-y-4">
+      <!-- Resumen de Balance Actual y Saldo Restante -->
+      <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-600 font-medium">Deuda pendiente actual:</span>
+          <span class="font-extrabold font-mono text-sm text-rose-600">
+            RD$ {{ selected_conv.contact.customer.current_balance|default:"0.00"|floatformat:2 }}
+          </span>
+        </div>
+        <div class="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200">
+          <span class="text-slate-500">Saldo pendiente posterior:</span>
+          <span id="abonoBalanceAfterText" class="font-bold font-mono text-slate-800">
+            RD$ {{ selected_conv.contact.customer.current_balance|default:"0.00"|floatformat:2 }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Selector de 3 Métodos de Abono -->
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">Seleccionar Método de Pago del Abono</label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="flex flex-col items-center p-2.5 border rounded-xl cursor-pointer text-center transition border-blue-500 bg-blue-50/50" id="abonoOptEfectivo">
+            <input type="radio" name="abono_payment_method" value="EFECTIVO" checked class="sr-only" onchange="selectAbonoMethod('EFECTIVO')">
+            <i data-lucide="banknote" class="w-4 h-4 text-blue-600 mb-1"></i>
+            <span class="text-xs font-bold text-slate-900">Efectivo</span>
+            <span class="text-[10px] text-slate-500">Caja física</span>
+          </label>
+
+          <label class="flex flex-col items-center p-2.5 border border-slate-200 rounded-xl cursor-pointer text-center transition hover:bg-slate-50" id="abonoOptTransf">
+            <input type="radio" name="abono_payment_method" value="TRANSFERENCIA" class="sr-only" onchange="selectAbonoMethod('TRANSFERENCIA')">
+            <i data-lucide="arrow-left-right" class="w-4 h-4 text-emerald-600 mb-1"></i>
+            <span class="text-xs font-bold text-slate-900">Transferencia</span>
+            <span class="text-[10px] text-slate-500">Banco</span>
+          </label>
+
+          <label class="flex flex-col items-center p-2.5 border border-slate-200 rounded-xl cursor-pointer text-center transition hover:bg-slate-50" id="abonoOptTarjeta">
+            <input type="radio" name="abono_payment_method" value="TARJETA" class="sr-only" onchange="selectAbonoMethod('TARJETA')">
+            <i data-lucide="credit-card" class="w-4 h-4 text-purple-600 mb-1"></i>
+            <span class="text-xs font-bold text-slate-900">Tarjeta</span>
+            <span class="text-[10px] text-slate-500">POS</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Importe del Abono -->
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Importe del Abono (RD$) *</label>
+        <div class="relative">
+          <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 font-mono pointer-events-none select-none">RD$</span>
+          <input type="number" step="0.01" min="0.01" id="abonoAmountInput" required oninput="calculateAbonoBalanceAfter()" placeholder="0.00" class="w-full pl-14 pr-4 py-2.5 text-xl font-bold font-mono text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <!-- Chips de Monto Rápido -->
+        <div class="flex flex-wrap gap-1.5 mt-2">
+          <button type="button" onclick="setAbonoAmount(100)" class="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-blue-50 rounded-lg border border-slate-200">+100</button>
+          <button type="button" onclick="setAbonoAmount(200)" class="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-blue-50 rounded-lg border border-slate-200">+200</button>
+          <button type="button" onclick="setAbonoAmount(500)" class="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-blue-50 rounded-lg border border-slate-200">+500</button>
+          {% if selected_conv.contact.customer and selected_conv.contact.customer.current_balance > 0 %}
+          <button type="button" onclick="setAbonoAmount({{ selected_conv.contact.customer.current_balance|stringformat:'.2f' }})" class="px-2.5 py-1 text-xs font-bold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 rounded-lg border border-emerald-300">
+            Liquidación Total (RD$ {{ selected_conv.contact.customer.current_balance|floatformat:2 }})
+          </button>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Referencia (Transferencia / Tarjeta) -->
+      <div id="abonoReferenceWrapper" class="hidden">
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Referencia Bancaria o de Autorización</label>
+        <input type="text" id="abonoReferenceInput" placeholder="Ej. Depósito Banco BHD #71239..." class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-1 focus:ring-blue-500 focus:outline-none">
+      </div>
+
+      <!-- Notas adicionales -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Nota del Abono (Opcional)</label>
+        <input type="text" id="abonoNotesInput" placeholder="Ej. Abono traído al colmado..." class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-1 focus:ring-blue-500 focus:outline-none">
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeWhatsAppAbonoModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+          Cancelar
+        </button>
+        <button type="submit" id="btnSubmitAbonoModal" class="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition flex items-center gap-1.5">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Confirmar Abono</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================================== -->
+<!-- MODAL 3: REGISTRAR / ASIGNAR NOMBRE A CLIENTE DESDE WHATSAPP -->
+<!-- ============================================================================== -->
+<div id="whatsAppRegisterCustomerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity">
+  <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+    <div class="p-4 border-b flex items-start justify-between bg-orange-50 border-orange-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shadow-xs">
+          <i data-lucide="user-plus" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Registrar Cliente en el Sistema</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Asignar nombre y vincular con su número de WhatsApp</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeRegisterCustomerModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <form id="whatsAppRegisterCustomerForm" onsubmit="submitRegisterCustomer(event)" class="p-5 space-y-3.5">
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Nombre Completo *</label>
+        <input type="text" id="regCustomerName" required value="{{ selected_conv.contact.customer.name|default:selected_conv.contact.display_name|default:'' }}" placeholder="Ej. Juan Pérez" class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-1 focus:ring-orange-500 focus:outline-none">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Número de WhatsApp</label>
+          <input type="text" id="regCustomerPhone" value="{{ selected_conv.contact.phone }}" class="w-full px-3.5 py-2 text-xs font-mono border border-slate-300 rounded-xl bg-slate-50 text-slate-800 focus:ring-1 focus:ring-orange-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Alias / Apodo (Opcional)</label>
+          <input type="text" id="regCustomerAlias" value="{{ selected_conv.contact.customer.alias|default:'' }}" placeholder="Ej. El Rubio" class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-1 focus:ring-orange-500 focus:outline-none">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Dirección de Entrega</label>
+        <input type="text" id="regCustomerAddress" value="{{ selected_conv.contact.customer.address|default:'' }}" placeholder="Calle, número, sector..." class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-1 focus:ring-orange-500 focus:outline-none">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Límite de Crédito (RD$)</label>
+          <input type="number" step="100" id="regCustomerLimit" value="{{ selected_conv.contact.customer.credit_limit|default:'3000.00'|stringformat:'.2f' }}" class="w-full px-3.5 py-2 text-xs font-mono border border-slate-300 rounded-xl focus:ring-1 focus:ring-orange-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Observaciones</label>
+          <input type="text" id="regCustomerNotes" value="{{ selected_conv.contact.customer.notes|default:'' }}" placeholder="Notas del colmado..." class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-1 focus:ring-orange-500 focus:outline-none">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeRegisterCustomerModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+          Cancelar
+        </button>
+        <button type="submit" id="btnSubmitRegisterCustomer" class="px-5 py-2.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-xs transition flex items-center gap-1.5">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Guardar Cliente</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================================== -->
+<!-- JAVASCRIPT DE WHATSAPP: MODALES, VENTAS, ABONOS, Y DELIVERY -->
+<!-- ============================================================================== -->
+<script>
+  let currentBalance = parseFloat("{{ selected_conv.contact.customer.current_balance|default:'0.00' }}") || 0.00;
+  const convId = {{ selected_conv.id }};
+
+  // Scroll inicial al final del feed
+  const feed = document.getElementById('chatMessagesFeed');
+  if (feed) {
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  // Helper CSRF
+  function getInboxCsrf() {
+    return '{{ csrf_token }}';
+  }
+
+  // --- MODAL DE VENTA (CONTADO / CRÉDITO) ---
+  function openWhatsAppSaleModal(saleType) {
+    const modal = document.getElementById('whatsAppSaleModal');
+    const typeInput = document.getElementById('saleModalTypeInput');
+    const title = document.getElementById('saleModalTitle');
+    const header = document.getElementById('saleModalHeader');
+    const iconBox = document.getElementById('saleModalIconBox');
+    const icon = document.getElementById('saleModalIcon');
+    const contadoSection = document.getElementById('contadoPaymentSection');
+    const submitBtn = document.getElementById('btnSubmitSaleModal');
+    const submitText = document.getElementById('btnSubmitSaleText');
+    const amountInput = document.getElementById('saleAmountInput');
+
+    typeInput.value = saleType;
+    amountInput.value = '';
+
+    if (saleType === 'CONTADO') {
+      title.innerText = 'Registrar Venta Contado';
+      header.className = 'p-3.5 sm:p-4 border-b flex items-start justify-between bg-emerald-50 border-emerald-100 shrink-0';
+      iconBox.className = 'w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-xs shrink-0';
+      icon.setAttribute('data-lucide', 'dollar-sign');
+      contadoSection.classList.remove('hidden');
+      submitBtn.className = 'px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition flex items-center gap-1.5';
+      submitText.innerText = 'Confirmar y Registrar Venta Contado';
+    } else {
+      title.innerText = 'Registrar Venta a Crédito';
+      header.className = 'p-3.5 sm:p-4 border-b flex items-start justify-between bg-amber-50 border-amber-100 shrink-0';
+      iconBox.className = 'w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-xs shrink-0';
+      icon.setAttribute('data-lucide', 'credit-card');
+      contadoSection.classList.add('hidden');
+      submitBtn.className = 'px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs transition flex items-center gap-1.5';
+      submitText.innerText = 'Confirmar y Cargar a Crédito';
+    }
+
+    modal.classList.remove('hidden');
+    lucide.createIcons();
+    setTimeout(() => amountInput.focus(), 60);
+  }
+
+  function closeWhatsAppSaleModal() {
+    const modal = document.getElementById('whatsAppSaleModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function selectContadoMethod(method) {
+    const optEf = document.getElementById('optEfectivo');
+    const optTr = document.getElementById('optTransf');
+    const optTj = document.getElementById('optTarjeta');
+    const refWrapper = document.getElementById('referenceFieldWrapper');
+
+    [optEf, optTr, optTj].forEach(el => {
+      el.className = 'flex flex-col items-center py-2 px-1.5 border border-slate-200 rounded-xl cursor-pointer text-center transition hover:bg-slate-50';
+    });
+
+    if (method === 'EFECTIVO') {
+      optEf.className = 'flex flex-col items-center py-2 px-1.5 border rounded-xl cursor-pointer text-center transition border-emerald-500 bg-emerald-50/50';
+      refWrapper.classList.add('hidden');
+    } else if (method === 'TRANSFERENCIA') {
+      optTr.className = 'flex flex-col items-center py-2 px-1.5 border rounded-xl cursor-pointer text-center transition border-blue-500 bg-blue-50/50';
+      refWrapper.classList.remove('hidden');
+    } else if (method === 'TARJETA') {
+      optTj.className = 'flex flex-col items-center py-2 px-1.5 border rounded-xl cursor-pointer text-center transition border-purple-500 bg-purple-50/50';
+      refWrapper.classList.remove('hidden');
+    }
+  }
+
+  function toggleDestinationType(type) {
+    const optDir = document.getElementById('optDestDirecto');
+    const optExp = document.getElementById('optDestExpress');
+    const expressDetails = document.getElementById('expressDeliveryDetails');
+
+    if (type === 'DIRECTO') {
+      optDir.className = 'flex items-center justify-center gap-2 py-2 px-2.5 border rounded-xl cursor-pointer transition border-orange-500 bg-orange-50/40 text-xs font-bold text-slate-900 text-center';
+      optExp.className = 'flex items-center justify-center gap-2 py-2 px-2.5 border border-slate-200 rounded-xl cursor-pointer transition hover:bg-slate-50 text-xs font-bold text-slate-700 text-center';
+      expressDetails.classList.add('hidden');
+    } else {
+      optDir.className = 'flex items-center justify-center gap-2 py-2 px-2.5 border border-slate-200 rounded-xl cursor-pointer transition hover:bg-slate-50 text-xs font-bold text-slate-700 text-center';
+      optExp.className = 'flex items-center justify-center gap-2 py-2 px-2.5 border rounded-xl cursor-pointer transition border-amber-500 bg-amber-50/50 text-xs font-bold text-slate-900 text-center';
+      expressDetails.classList.remove('hidden');
+    }
+  }
+
+  function submitWhatsAppSale(e) {
+    e.preventDefault();
+    const btnSubmit = document.getElementById('btnSubmitSaleModal');
+    const originalText = btnSubmit.innerHTML;
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Procesando...</span>`;
+    lucide.createIcons();
+
+    const saleType = document.getElementById('saleModalTypeInput').value;
+    const amount = document.getElementById('saleAmountInput').value;
+    const notes = document.getElementById('saleNotesInput').value;
+    const paymentMethodEl = document.querySelector('input[name="payment_method"]:checked');
+    const paymentMethod = paymentMethodEl ? paymentMethodEl.value : 'EFECTIVO';
+    const reference = document.getElementById('saleReferenceInput').value;
+    const destTypeEl = document.querySelector('input[name="destination_type"]:checked');
+    const destinationType = destTypeEl ? destTypeEl.value : 'DIRECTO';
+    const deliveryPersonId = document.getElementById('saleDeliveryPersonSelect').value;
+    const deliveryAddress = document.getElementById('saleDeliveryAddressInput').value;
+
+    const payload = {
+      sale_type: saleType,
+      amount: amount,
+      notes: notes,
+      payment_method: paymentMethod,
+      reference: reference,
+      destination_type: destinationType,
+      delivery_person_id: deliveryPersonId,
+      delivery_address: deliveryAddress,
+    };
+
+    fetch(`/whatsapp/conversacion/${convId}/crear-venta/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getInboxCsrf(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = originalText;
+      lucide.createIcons();
+
+      if (data.success) {
+        closeWhatsAppSaleModal();
+        showToast(`¡Venta registrada con éxito!\nTicket: ${data.ticket_number} • Total: RD$ ${data.total.toFixed(2)} (${data.payment_method})`, 'success');
+        
+        // Si fue a crédito o cambió balance, actualizar UI
+        if (data.customer_balance !== undefined) {
+          currentBalance = data.customer_balance;
+          const balEl = document.getElementById('headerBalanceValue');
+          if (balEl) {
+            balEl.innerText = `RD$ ${currentBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            balEl.className = currentBalance > 0 ? 'text-rose-600 font-extrabold' : 'text-emerald-600 font-extrabold';
+          }
+        }
+
+        // Si fue Delivery Express, refrescar badge de delivery
+        if (typeof fetchDeliveryOrders === 'function') {
+          fetchDeliveryOrders();
+        }
+
+        // Refrescar mensajes en vivo inmediatamente sin recargar
+        if (typeof pollWhatsAppLive === 'function') {
+          pollWhatsAppLive();
+        }
+      } else {
+        showToast("Error al registrar venta: " + (data.error || 'Ocurrió un error'), 'error');
+      }
+    })
+    .catch(err => {
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = originalText;
+      lucide.createIcons();
+      showToast("Error de conexión al procesar la venta.", 'error');
+    });
+  }
+
+  // --- MODAL DE ABONO (3 MÉTODOS) ---
+  function openWhatsAppAbonoModal() {
+    const modal = document.getElementById('whatsAppAbonoModal');
+    document.getElementById('abonoAmountInput').value = '';
+    document.getElementById('abonoReferenceInput').value = '';
+    document.getElementById('abonoNotesInput').value = '';
+    selectAbonoMethod('EFECTIVO');
+    calculateAbonoBalanceAfter();
+    modal.classList.remove('hidden');
+    lucide.createIcons();
+    setTimeout(() => document.getElementById('abonoAmountInput').focus(), 60);
+  }
+
+  function closeWhatsAppAbonoModal() {
+    const modal = document.getElementById('whatsAppAbonoModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function selectAbonoMethod(method) {
+    const optEf = document.getElementById('abonoOptEfectivo');
+    const optTr = document.getElementById('abonoOptTransf');
+    const optTj = document.getElementById('abonoOptTarjeta');
+    const refWrapper = document.getElementById('abonoReferenceWrapper');
+
+    [optEf, optTr, optTj].forEach(el => {
+      el.className = 'flex flex-col items-center p-2.5 border border-slate-200 rounded-xl cursor-pointer text-center transition hover:bg-slate-50';
+    });
+
+    if (method === 'EFECTIVO') {
+      optEf.className = 'flex flex-col items-center p-2.5 border rounded-xl cursor-pointer text-center transition border-blue-500 bg-blue-50/50';
+      refWrapper.classList.add('hidden');
+    } else if (method === 'TRANSFERENCIA') {
+      optTr.className = 'flex flex-col items-center p-2.5 border rounded-xl cursor-pointer text-center transition border-emerald-500 bg-emerald-50/50';
+      refWrapper.classList.remove('hidden');
+    } else if (method === 'TARJETA') {
+      optTj.className = 'flex flex-col items-center p-2.5 border rounded-xl cursor-pointer text-center transition border-purple-500 bg-purple-50/50';
+      refWrapper.classList.remove('hidden');
+    }
+  }
+
+  function setAbonoAmount(val) {
+    const input = document.getElementById('abonoAmountInput');
+    input.value = parseFloat(val).toFixed(2);
+    calculateAbonoBalanceAfter();
+    input.focus();
+  }
+
+  function calculateAbonoBalanceAfter() {
+    const amountVal = parseFloat(document.getElementById('abonoAmountInput').value) || 0;
+    const balanceAfter = Math.max(0, currentBalance - amountVal);
+    const balanceAfterEl = document.getElementById('abonoBalanceAfterText');
+    if (balanceAfterEl) {
+      balanceAfterEl.innerText = `RD$ ${balanceAfter.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    }
+  }
+
+  function submitWhatsAppAbono(e) {
+    e.preventDefault();
+    const btnSubmit = document.getElementById('btnSubmitAbonoModal');
+    const originalText = btnSubmit.innerHTML;
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Procesando...</span>`;
+    lucide.createIcons();
+
+    const amount = document.getElementById('abonoAmountInput').value;
+    const methodEl = document.querySelector('input[name="abono_payment_method"]:checked');
+    const paymentMethod = methodEl ? methodEl.value : 'EFECTIVO';
+    const reference = document.getElementById('abonoReferenceInput').value;
+    const notes = document.getElementById('abonoNotesInput').value;
+
+    const formData = new FormData();
+    formData.append('action_type', 'ABONO');
+    formData.append('amount', amount);
+    formData.append('payment_method', paymentMethod);
+    formData.append('reference', reference);
+    formData.append('notes', notes);
+
+    fetch(`/whatsapp/conversacion/${convId}/credito/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getInboxCsrf(),
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = originalText;
+      lucide.createIcons();
+
+      if (data.success) {
+        closeWhatsAppAbonoModal();
+        currentBalance = data.new_balance;
+        const balEl = document.getElementById('headerBalanceValue');
+        if (balEl) {
+          balEl.innerText = `RD$ ${currentBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          balEl.className = currentBalance > 0 ? 'text-rose-600 font-extrabold' : 'text-emerald-600 font-extrabold';
+        }
+        showToast(`¡Abono registrado con éxito!\nMonto: RD$ ${data.amount.toFixed(2)} (${data.payment_method})\nNuevo saldo pendiente: RD$ ${data.new_balance.toFixed(2)}`, 'success');
+        if (typeof pollWhatsAppLive === 'function') {
+          pollWhatsAppLive();
+        }
+      } else {
+        showToast("Error al registrar abono: " + (data.error || 'Ocurrió un error'), 'error');
+      }
+    })
+    .catch(err => {
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = originalText;
+      lucide.createIcons();
+      showToast("Error de conexión al procesar el abono.", 'error');
+    });
+  }
+
+  // --- MODAL DE REGISTRAR CLIENTE / ASIGNAR NOMBRE ---
+  function openRegisterCustomerModal() {
+    const modal = document.getElementById('whatsAppRegisterCustomerModal');
+    modal.classList.remove('hidden');
+    lucide.createIcons();
+    setTimeout(() => document.getElementById('regCustomerName').focus(), 60);
+  }
+
+  function closeRegisterCustomerModal() {
+    const modal = document.getElementById('whatsAppRegisterCustomerModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function submitRegisterCustomer(e) {
+    e.preventDefault();
+    const btnSubmit = document.getElementById('btnSubmitRegisterCustomer');
+    const originalText = btnSubmit.innerHTML;
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Guardando...</span>`;
+    lucide.createIcons();
+
+    const formData = new FormData();
+    formData.append('name', document.getElementById('regCustomerName').value);
+    formData.append('phone', document.getElementById('regCustomerPhone').value);
+    formData.append('alias', document.getElementById('regCustomerAlias').value);
+    formData.append('address', document.getElementById('regCustomerAddress').value);
+    formData.append('notes', document.getElementById('regCustomerNotes').value);
+    formData.append('credit_limit', document.getElementById('regCustomerLimit').value);
+
+    fetch(`/whatsapp/conversacion/${convId}/registrar-cliente/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getInboxCsrf(),
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = originalText;
+      lucide.createIcons();
+
+      if (data.success) {
+        closeRegisterCustomerModal();
+        showToast(data.message || 'Cliente registrado exitosamente', 'success');
+        // Actualizar datos del header en vivo
+        const nameHeader = document.getElementById('headerContactName');
+        const badge = document.getElementById('headerCustomerBadge');
+        if (nameHeader) nameHeader.innerText = data.customer_name;
+        if (badge) {
+          badge.innerText = 'Cliente Registrado';
+          badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+        }
+        if (typeof pollWhatsAppLive === 'function') {
+          pollWhatsAppLive();
+        }
+      } else {
+        showToast("Error al registrar cliente: " + (data.error || 'Ocurrió un error'), 'error');
+      }
+    })
+    .catch(err => {
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = originalText;
+      lucide.createIcons();
+      showToast("Error al guardar cliente.", 'error');
+    });
+  }
+
+  // Cierre con Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeWhatsAppSaleModal();
+      closeWhatsAppAbonoModal();
+      closeRegisterCustomerModal();
+    }
+  });
+
+  // ==============================================================================
+  // EN VIVO / TIEMPO REAL: ACTUALIZACIÓN AUTOMÁTICA DE MENSAJES Y CHATS (POLLING)
+  // ==============================================================================
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function playWhatsAppChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.22);
+    } catch(e) {}
+  }
+
+  function getLastMsgId() {
+    const feed = document.getElementById('chatMessagesFeed');
+    if (!feed) return 0;
+    const msgEls = feed.querySelectorAll('[data-msg-id]');
+    if (!msgEls.length) return 0;
+    let maxId = 0;
+    msgEls.forEach(el => {
+      const id = parseInt(el.getAttribute('data-msg-id'), 10);
+      if (id && id > maxId) maxId = id;
+    });
+    return maxId;
+  }
+
+  function scrollChatToBottom(smooth) {
+    const feed = document.getElementById('chatMessagesFeed');
+    if (feed) {
+      if (smooth) {
+        feed.scrollTo({ top: feed.scrollHeight, behavior: 'smooth' });
+      } else {
+        feed.scrollTop = feed.scrollHeight;
+      }
+    }
+  }
+
+  function appendMessageToFeed(msg) {
+    const feed = document.getElementById('chatMessagesFeed');
+    if (!feed) return;
+    if (feed.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+
+    const noMsgPlaceholder = document.getElementById('noMessagesPlaceholder');
+    if (noMsgPlaceholder) noMsgPlaceholder.remove();
+
+    const isOutbound = msg.direction === 'OUTBOUND';
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `flex flex-col ${isOutbound ? 'items-end' : 'items-start'} transition-all`;
+    msgDiv.setAttribute('data-msg-id', msg.id);
+
+    let statusHtml = '';
+    if (isOutbound) {
+      if (msg.status === 'read') {
+        statusHtml = '<i data-lucide="check-check" class="w-3 h-3 text-cyan-300"></i>';
+      } else if (msg.status === 'delivered') {
+        statusHtml = '<i data-lucide="check-check" class="w-3 h-3 text-emerald-200"></i>';
+      } else if (msg.status === 'sent') {
+        statusHtml = '<i data-lucide="check" class="w-3 h-3 text-emerald-200"></i>';
+      } else if (msg.status === 'failed') {
+        statusHtml = `<i data-lucide="alert-circle" class="w-3 h-3 text-rose-300" title="${escapeHtml(msg.error_message)}"></i>`;
+      } else {
+        statusHtml = '<i data-lucide="clock" class="w-3 h-3 text-emerald-300"></i>';
+      }
+    }
+
+    msgDiv.innerHTML = `
+      <div class="max-w-[88%] sm:max-w-[75%] rounded-2xl px-3.5 sm:px-4 py-2.5 shadow-2xs text-xs ${isOutbound ? 'bg-emerald-700 text-white rounded-br-none' : 'bg-white text-slate-800 rounded-bl-none border border-slate-200'}">
+        <p class="whitespace-pre-line leading-relaxed">${escapeHtml(msg.content)}</p>
+        <div class="flex items-center justify-end gap-1.5 mt-1.5 text-[10px] ${isOutbound ? 'text-emerald-200' : 'text-slate-400'}">
+          <span>${msg.time}</span>
+          ${isOutbound ? `<span class="status-indicator">${statusHtml}</span>` : ''}
+        </div>
+      </div>
+      ${msg.status === 'failed' && msg.error_message ? `<div class="text-[10px] text-rose-500 font-mono mt-0.5 max-w-[75%] text-right">Nota de entrega: ${escapeHtml(msg.error_message)}</div>` : ''}
+    `;
+
+    feed.appendChild(msgDiv);
+    lucide.createIcons();
+    scrollChatToBottom(true);
+  }
+
+  function updateConversationsList(conversations, activeChatId) {
+    const container = document.getElementById('conversationsListContainer');
+    if (!container) return;
+
+    conversations.forEach(c => {
+      let convLink = container.querySelector(`[data-conv-id="${c.id}"]`);
+      if (convLink) {
+        const previewP = convLink.querySelector('.conv-preview');
+        if (previewP) {
+          let clean = (c.last_message || 'Sin mensajes recientes').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+          if (clean.length > 55) {
+            clean = clean.substring(0, 55).trim() + '...';
+          }
+          previewP.innerText = clean;
+          previewP.title = clean;
+        }
+        const timeSpan = convLink.querySelector('.conv-time');
+        if (timeSpan) timeSpan.innerText = c.time;
+        const badgeBox = convLink.querySelector('.conv-unread-box');
+        if (badgeBox) {
+          if (c.unread_count > 0 && String(c.id) !== String(activeChatId)) {
+            badgeBox.innerHTML = `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold mt-1">${c.unread_count}</span>`;
+          } else {
+            badgeBox.innerHTML = '';
+          }
+        }
+      }
+    });
+  }
+
+  let isPollingWhatsApp = false;
+  function pollWhatsAppLive() {
+    if (isPollingWhatsApp) return;
+    isPollingWhatsApp = true;
+
+    const feed = document.getElementById('chatMessagesFeed');
+    const chatId = feed ? (feed.getAttribute('data-chat-id') || '') : '';
+    const lastMsgId = getLastMsgId();
+
+    const url = `/whatsapp/api/live/?chat_id=${encodeURIComponent(chatId)}&last_msg_id=${encodeURIComponent(lastMsgId)}`;
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        isPollingWhatsApp = false;
+
+        // 1. Mensajes entrantes / salientes nuevos
+        if (data.new_messages && data.new_messages.length > 0) {
+          let hasInbound = false;
+          data.new_messages.forEach(msg => {
+            appendMessageToFeed(msg);
+            if (msg.direction === 'INBOUND') hasInbound = true;
+          });
+          if (hasInbound) {
+            playWhatsAppChime();
+          }
+        }
+
+        // 2. Actualizar estados de lectura / entrega
+        if (data.statuses && feed) {
+          Object.keys(data.statuses).forEach(msgId => {
+            const status = data.statuses[msgId];
+            const msgEl = feed.querySelector(`[data-msg-id="${msgId}"]`);
+            if (msgEl) {
+              const statusInd = msgEl.querySelector('.status-indicator');
+              if (statusInd) {
+                if (status === 'read') {
+                  statusInd.innerHTML = '<i data-lucide="check-check" class="w-3 h-3 text-cyan-300"></i>';
+                } else if (status === 'delivered') {
+                  statusInd.innerHTML = '<i data-lucide="check-check" class="w-3 h-3 text-emerald-200"></i>';
+                } else if (status === 'sent') {
+                  statusInd.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-emerald-200"></i>';
+                }
+              }
+            }
+          });
+          lucide.createIcons();
+        }
+
+        // 3. Actualizar lista lateral de chats
+        if (data.conversations && data.conversations.length > 0) {
+          updateConversationsList(data.conversations, chatId);
+        }
+
+        // 4. Actualizar datos financieros en header
+        if (data.chat_info && data.chat_info.has_customer) {
+          const balEl = document.getElementById('headerBalanceValue');
+          if (balEl && typeof data.chat_info.customer_balance === 'number') {
+            balEl.innerText = `RD$ ${data.chat_info.customer_balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          }
+        }
+      })
+      .catch(() => {
+        isPollingWhatsApp = false;
+      });
+  }
+
+  // Interceptar formulario para envío AJAX suave sin recargar
+  const chatMessageForm = document.getElementById('chatMessageForm');
+  if (chatMessageForm) {
+    chatMessageForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const input = document.getElementById('chatMessageInput');
+      const text = input ? input.value.trim() : '';
+      if (!text) return;
+
+      const btnSend = document.getElementById('btnSendChat');
+      const originalBtnHtml = btnSend ? btnSend.innerHTML : '';
+      if (btnSend) {
+        btnSend.disabled = true;
+        btnSend.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>';
+        lucide.createIcons();
+      }
+
+      const formData = new FormData(chatMessageForm);
+      input.value = '';
+
+      fetch(chatMessageForm.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': getInboxCsrf()
+        },
+        body: formData
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (btnSend) {
+          btnSend.disabled = false;
+          btnSend.innerHTML = originalBtnHtml;
+          lucide.createIcons();
+        }
+        if (data.success) {
+          if (data.is_command) {
+            if (data.customer_balance !== undefined) {
+              const balEl = document.getElementById('headerBalanceValue');
+              if (balEl) {
+                balEl.innerText = `RD$ ${data.customer_balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+              }
+            }
+            showToast(data.flash_message, 'success');
+          } else if (data.message) {
+            appendMessageToFeed(data.message);
+          }
+          pollWhatsAppLive();
+        } else {
+          showToast("Error al enviar: " + (data.error || 'No se pudo enviar'), 'error');
+          input.value = text;
+        }
+      })
+      .catch(() => {
+        if (btnSend) {
+          btnSend.disabled = false;
+          btnSend.innerHTML = originalBtnHtml;
+          lucide.createIcons();
+        }
+        showToast("Error de conexión al enviar el mensaje.", 'error');
+        input.value = text;
+      });
+    });
+  }
+
+  // Iniciar sondeo en vivo cada 2.5 segundos
+  pollWhatsAppLive();
+  setInterval(pollWhatsAppLive, 2500);
+</script>
+{% endif %}
+{% endblock %}
