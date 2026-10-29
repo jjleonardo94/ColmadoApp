@@ -15,8 +15,8 @@ services:
       - WHATSAPP_SWAGGER_NO_PASSWORD=True
       - WHATSAPP_SWAGGER_PASSWORD=
       - WAHA_API_KEY=colmadopos_secret_waha_api_key_2026
-      # Webhook hacia el backend de ColmadoApp
-      - WHATSAPP_HOOK_URL=http://host.docker.internal:8000/whatsapp/webhook/
+      # Webhook hacia el backend de ColmadoApp en Render
+      - WHATSAPP_HOOK_URL=https://colmadopos.onrender.com/whatsapp/webhook/
       - WHATSAPP_HOOK_EVENTS=message,message.any
     volumes:
       - waha_sessions:/app/.sessions
