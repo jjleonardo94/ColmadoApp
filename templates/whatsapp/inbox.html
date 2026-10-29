@@ -117,14 +117,14 @@
                 </span>
               {% else %}
                 <span id="headerCustomerBadge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                  Sin Nombre en Agenda
+                  No Registrado
                 </span>
               {% endif %}
 
-              <!-- Botón Registrar Cliente / Asignar Nombre -->
-              <button type="button" onclick="openRegisterCustomerModal()" title="Registrar o actualizar datos del cliente" class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline flex items-center gap-1 ml-1">
+              <!-- Botón Registrar Cliente -->
+              <button type="button" onclick="openRegisterCustomerModal()" title="Registrar o actualizar datos del cliente en el colmado" class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline flex items-center gap-1 ml-1">
                 <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
-                <span>{% if selected_conv.contact.customer %}Editar Cliente{% else %}Asignar Nombre{% endif %}</span>
+                <span id="btnRegisterCustomerText">{% if selected_conv.contact.customer %}Editar Cliente{% else %}Registrar Cliente{% endif %}</span>
               </button>
             </div>
             <div class="text-xs text-slate-500 font-mono flex items-center gap-2 mt-0.5">
@@ -502,7 +502,7 @@
         </div>
         <div>
           <h3 class="text-base font-bold text-slate-900">Registrar Cliente en el Sistema</h3>
-          <p class="text-xs text-slate-500 mt-0.5">Asignar nombre y vincular con su número de WhatsApp</p>
+          <p class="text-xs text-slate-500 mt-0.5">Guardar datos, dirección de delivery y crédito para este número</p>
         </div>
       </div>
       <button type="button" onclick="closeRegisterCustomerModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
@@ -899,10 +899,14 @@
         // Actualizar datos del header en vivo
         const nameHeader = document.getElementById('headerContactName');
         const badge = document.getElementById('headerCustomerBadge');
+        const btnRegText = document.getElementById('btnRegisterCustomerText');
         if (nameHeader) nameHeader.innerText = data.customer_name;
         if (badge) {
           badge.innerText = 'Cliente Registrado';
           badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+        }
+        if (btnRegText) {
+          btnRegText.innerText = 'Editar Cliente';
         }
         if (typeof pollWhatsAppLive === 'function') {
           pollWhatsAppLive();
