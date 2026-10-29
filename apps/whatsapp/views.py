@@ -647,3 +647,58 @@ class WhatsAppLiveUpdatesView(LoginRequiredMixin, View):
             'statuses': statuses,
             'chat_info': chat_info,
         })
+
+
+class WhatsAppDeleteMessageView(LoginRequiredMixin, View):
+    """
+    Elimina un mensaje individual de la conversación en ColmadoPOS.
+    """
+    def post(self, request, pk):
+        message = get_object_or_404(WhatsAppMessage, pk=pk)
+        conv = message.conversation
+        message.delete()
+
+        # Recalcular el último mensaje de la conversación
+        last_msg = conv.messages.order_by('-created_at').first()
+        if last_msg:
+            conv.last_message_text = last_msg.content
+            conv.last_message_at = last_msg.created_at
+        else:
+            conv.last_message_text = ""
+        conv.save(update_fields=['last_message_text', 'last_message_at'])
+
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('accept', ''):
+            return JsonResponse({
+                'success': True,
+                'message': 'Mensaje eliminado exitosamente',
+                'last_message_preview': conv.last_message_preview,
+                'remaining_count': conv.messages.count(),
+            })
+
+        messages.success(request, 'Mensaje eliminado exitosamente.')
+        return redirect(f"/whatsapp/bandeja/?chat={conv.id}")
+
+
+class WhatsAppDeleteConversationView(LoginRequiredMixin, View):
+    """
+    Elimina una conversación completa y todos sus mensajes en ColmadoPOS.
+    """
+    def post(self, request, pk):
+        conv = get_object_or_404(WhatsAppConversation, pk=pk)
+        contact = conv.contact
+        conv.delete()
+
+        # Si el contacto no está registrado como cliente formal y no tiene otros chats, limpiar contacto
+        if contact and not contact.customer and not contact.conversations.exists():
+            contact.delete()
+
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('accept', ''):
+            return JsonResponse({
+                'success': True,
+                'message': 'Conversación eliminada exitosamente',
+                'redirect_url': '/whatsapp/bandeja/'
+            })
+
+        messages.success(request, 'Conversación eliminada exitosamente.')
+        return redirect('whatsapp_inbox')
+
