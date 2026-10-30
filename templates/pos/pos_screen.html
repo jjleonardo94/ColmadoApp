@@ -437,20 +437,13 @@
         const stock = parseFloat(el.dataset.stock);
         const saleType = el.dataset.saleType;
         const unit = el.dataset.unit;
-        const unitCode = el.dataset.unitCode;
+        const unitCode = el.dataset.unitCode || el.dataset.unit;
         const allowsDec = el.dataset.allowsDecimals === 'true';
 
-        // Para productos fraccionados (por peso/libra), abre el modal de cantidad/libras
-        // Para productos por unidad, agrega directamente al carrito
-        if (allowsDec || saleType === 'FRACTION') {
-            openQtyModal({ id, name, price, stock, saleType, unit, unitCode, allowsDecimals: true });
-        } else {
-            // Agregar directo al carrito con retroalimentación visual
-            addProductToCart(id, name, price, stock, saleType, unit, false);
-            // Feedback visual en el card
-            el.classList.add('border-orange-500', 'shadow-md');
-            setTimeout(() => el.classList.remove('border-orange-500', 'shadow-md'), 300);
-        }
+        // SIEMPRE abre el modal de cantidad para confirmar cuánto se vende.
+        // Si es fraccionado (por libra/peso) -> muestra inputs de libras con botones rapidos.
+        // Si es por unidad (entero) -> muestra input de cantidad entera.
+        openQtyModal({ id, name, price, stock, saleType, unit, unitCode, allowsDecimals: allowsDec });
     }
 
     // --- MODAL DE CANTIDAD / LIBRAS ---
