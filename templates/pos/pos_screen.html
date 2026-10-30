@@ -324,7 +324,7 @@
                 <select id="amountProductSelect" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:border-orange-500">
                     {% for p in popular_products %}
                     {% if p.allows_decimals %}
-                    <option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.sale_price }}" data-unit="{{ p.get_unit_of_measure_display }}" data-stock="{{ p.current_stock }}">
+                    <option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.sale_price|stringformat:".4f" }}" data-unit="{{ p.get_unit_of_measure_display }}" data-stock="{{ p.current_stock|stringformat:".4f" }}">
                         {{ p.name }} - RD$ {{ p.sale_price|floatformat:2 }}/{{ p.get_unit_of_measure_display }}
                     </option>
                     {% endif %}
@@ -420,8 +420,8 @@
 <script>
     // --- ESTADO GLOBAL DEL POS ---
     let cart = [];
-    const USD_RATE = {{ settings.usd_rate|default:"59.50" }};
-    const EUR_RATE = {{ settings.eur_rate|default:"64.00" }};
+    const USD_RATE = parseFloat("{{ settings.usd_rate|stringformat:\".4f\"|default:\"59.50\" }}");
+    const EUR_RATE = parseFloat("{{ settings.eur_rate|stringformat:\".4f\"|default:\"64.00\" }}");
     let currentPayTab = 'EFECTIVO';
     let isSubmitting = false;
 
