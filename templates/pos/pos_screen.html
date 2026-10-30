@@ -57,7 +57,14 @@
         <div class="flex-1 p-4 overflow-y-auto">
             <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {% for p in popular_products %}
-                <div onclick="addProductToCart({{ p.id }}, '{{ p.name|escapejs }}', {{ p.sale_price }}, {{ p.current_stock }}, '{{ p.sale_type }}', '{{ p.get_unit_of_measure_display }}', {{ p.allows_decimals|lower }})"
+                <div onclick="handleProductCardClick(this)"
+                     data-id="{{ p.id }}"
+                     data-name="{{ p.name|escapejs }}"
+                     data-price="{{ p.sale_price|stringformat:'.4f' }}"
+                     data-stock="{{ p.current_stock|stringformat:'.4f' }}"
+                     data-sale-type="{{ p.sale_type }}"
+                     data-unit="{{ p.get_unit_of_measure_display|escapejs }}"
+                     data-allows-decimals="{{ p.allows_decimals|lower }}"
                      class="group relative bg-white border border-slate-200 rounded-xl p-3 flex flex-col justify-between cursor-pointer hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98]">
                     <div>
                         <div class="flex items-start justify-between gap-1 mb-1.5">
@@ -98,10 +105,16 @@
                     <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                     <h3 class="font-bold text-slate-900 text-sm">Ticket Actual</h3>
                 </div>
-                <button type="button" onclick="clearCart()" class="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline">
-                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                    <span>Limpiar</span>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="openPosCalculatorModal()" title="Calculadora rápida de colmado" class="text-xs text-slate-600 hover:text-slate-900 bg-white border border-slate-200 px-2 py-1 rounded-lg font-semibold flex items-center gap-1 hover:bg-slate-50 transition shadow-2xs">
+                        <i data-lucide="calculator" class="w-3.5 h-3.5 text-orange-600"></i>
+                        <span>Calc</span>
+                    </button>
+                    <button type="button" onclick="clearCart()" class="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        <span>Limpiar</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Customer Selector -->
@@ -114,7 +127,7 @@
                     <select id="customerSelect" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:border-orange-500">
                         <option value="">Consumidor Final (Venta Ocasional)</option>
                         {% for c in customers %}
-                        <option value="{{ c.id }}" data-balance="{{ c.current_balance }}" data-limit="{{ c.credit_limit }}" data-avail="{{ c.available_credit }}">
+                        <option value="{{ c.id }}" data-balance="{{ c.current_balance|stringformat:'.2f' }}" data-limit="{{ c.credit_limit|stringformat:'.2f' }}" data-avail="{{ c.available_credit|stringformat:'.2f' }}">
                             {{ c.name }} - Saldo: RD$ {{ c.current_balance|floatformat:2 }} (Disp: RD$ {{ c.available_credit|floatformat:2 }})
                         </option>
                         {% endfor %}
@@ -123,13 +136,18 @@
             </div>
         </div>
 
-        <!-- Cart Items List -->
-        <div id="cartItemsList" class="flex-1 p-4 overflow-y-auto divide-y divide-slate-100 space-y-2">
-            <!-- Dynamic Cart Items Rendered Here via JS -->
+        <!-- Cart Items List Container -->
+        <div class="flex-1 p-4 overflow-y-auto relative space-y-2">
+            <!-- Empty Cart Message (fuera de cartItemsList para que nunca sea eliminado del DOM) -->
             <div id="emptyCartMessage" class="text-center py-16 text-slate-400">
                 <i data-lucide="shopping-cart" class="w-12 h-12 mx-auto mb-2 text-slate-300 stroke-1"></i>
                 <p class="text-sm font-medium text-slate-500">El carrito está vacío</p>
                 <p class="text-xs text-slate-400 mt-1">Escanee un código de barras o seleccione productos del catálogo.</p>
+            </div>
+
+            <!-- Items List -->
+            <div id="cartItemsList" class="divide-y divide-slate-100 space-y-2">
+                <!-- Dynamic Cart Items Rendered Here via JS -->
             </div>
         </div>
 
@@ -444,24 +462,36 @@
         });
     }
 
+    function handleProductCardClick(el) {
+        if (!el) return;
+        const id = parseInt(el.dataset.id);
+        const name = el.dataset.name;
+        const price = parseFloat(el.dataset.price);
+        const stock = parseFloat(el.dataset.stock);
+        const saleType = el.dataset.saleType;
+        const unit = el.dataset.unit;
+        const allowsDec = el.dataset.allowsDecimals === 'true';
+        addProductToCart(id, name, price, stock, saleType, unit, allowsDec);
+    }
+
     function renderCart() {
         const container = document.getElementById('cartItemsList');
         const emptyMsg = document.getElementById('emptyCartMessage');
         const btnCheckout = document.getElementById('btnCheckout');
+        if (!container) return;
 
         if (cart.length === 0) {
             container.innerHTML = '';
-            container.appendChild(emptyMsg);
-            emptyMsg.classList.remove('hidden');
+            if (emptyMsg) emptyMsg.classList.remove('hidden');
             document.getElementById('cartSubtotal').innerText = 'RD$ 0.00';
             document.getElementById('cartDiscount').innerText = 'RD$ 0.00';
             document.getElementById('cartTotal').innerText = 'RD$ 0.00';
             document.getElementById('cartTotalUSD').innerText = 'US$ 0.00';
-            btnCheckout.disabled = true;
+            if (btnCheckout) btnCheckout.disabled = true;
             return;
         }
 
-        emptyMsg.classList.add('hidden');
+        if (emptyMsg) emptyMsg.classList.add('hidden');
         container.innerHTML = '';
 
         let subtotal = 0;
@@ -606,8 +636,25 @@
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Monto Entregado</label>
-                            <input type="number" id="cashReceivedInput" step="1" value="${Math.ceil(total)}" oninput="calculateCashChange()"
+                            <input type="number" id="cashReceivedInput" step="any" value="${Math.ceil(total)}" oninput="calculateCashChange()"
                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold text-slate-900 text-center focus:outline-none focus:border-orange-500">
+                        </div>
+                    </div>
+
+                    <!-- Billetes Rápidos RD$ (Denominaciones de Colmado) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Billetes Rápidos RD$</span>
+                            <span class="text-[10px] text-slate-400">Clic para fijar monto</span>
+                        </div>
+                        <div class="grid grid-cols-4 sm:grid-cols-7 gap-1.5 text-xs font-bold">
+                            <button type="button" onclick="setCashReceived(${total})" class="py-1.5 px-1 bg-orange-100 text-orange-800 hover:bg-orange-200 rounded-lg text-center transition">Exacto</button>
+                            <button type="button" onclick="setCashReceived(50)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">50</button>
+                            <button type="button" onclick="setCashReceived(100)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">100</button>
+                            <button type="button" onclick="setCashReceived(200)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">200</button>
+                            <button type="button" onclick="setCashReceived(500)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">500</button>
+                            <button type="button" onclick="setCashReceived(1000)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">1,000</button>
+                            <button type="button" onclick="setCashReceived(2000)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">2,000</button>
                         </div>
                     </div>
 
@@ -816,5 +863,151 @@
         }
         return cookieValue;
     }
+
+    function setCashReceived(amt) {
+        const inp = document.getElementById('cashReceivedInput');
+        if (inp) {
+            inp.value = Math.round(amt * 100) / 100;
+            calculateCashChange();
+        }
+    }
+
+    // --- CALCULADORA RÁPIDA DE CAJA ---
+    let calcCurrent = '0';
+    let calcPrev = '';
+    let calcOp = null;
+
+    function openPosCalculatorModal() {
+        document.getElementById('posCalculatorModal').classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function closePosCalculatorModal() {
+        document.getElementById('posCalculatorModal').classList.add('hidden');
+    }
+
+    function updateCalcDisplay() {
+        const disp = document.getElementById('calcDisplay');
+        const formulaEl = document.getElementById('calcFormula');
+        if (disp) disp.innerText = calcCurrent;
+        if (formulaEl) {
+            if (calcOp && calcPrev) {
+                formulaEl.innerText = `${calcPrev} ${calcOp}`;
+            } else {
+                formulaEl.innerText = '';
+            }
+        }
+    }
+
+    function calcAction(val) {
+        if (val === 'C') {
+            calcCurrent = '0';
+            calcPrev = '';
+            calcOp = null;
+        } else if (val === 'DEL') {
+            if (calcCurrent.length > 1) {
+                calcCurrent = calcCurrent.slice(0, -1);
+            } else {
+                calcCurrent = '0';
+            }
+        } else if (['+', '-', '*', '/'].includes(val)) {
+            if (calcOp && calcPrev) {
+                calcExecute();
+            }
+            calcPrev = calcCurrent;
+            calcOp = val;
+            calcCurrent = '0';
+        } else if (val === '=') {
+            calcExecute();
+            calcOp = null;
+            calcPrev = '';
+        } else if (val === '.') {
+            if (!calcCurrent.includes('.')) {
+                calcCurrent += '.';
+            }
+        } else {
+            if (calcCurrent === '0') {
+                calcCurrent = val;
+            } else {
+                calcCurrent += val;
+            }
+        }
+        updateCalcDisplay();
+    }
+
+    function calcExecute() {
+        if (!calcOp || !calcPrev) return;
+        const prev = parseFloat(calcPrev);
+        const curr = parseFloat(calcCurrent);
+        let res = 0;
+        if (calcOp === '+') res = prev + curr;
+        else if (calcOp === '-') res = prev - curr;
+        else if (calcOp === '*') res = prev * curr;
+        else if (calcOp === '/') res = curr !== 0 ? prev / curr : 0;
+        calcCurrent = String(Math.round(res * 1000) / 1000);
+    }
+
+    function calcUseAsReceived() {
+        const val = parseFloat(calcCurrent);
+        if (!isNaN(val) && val > 0) {
+            setCashReceived(val);
+            closePosCalculatorModal();
+            showToast(`Monto RD$ ${val.toFixed(2)} aplicado a efectivo`, 'info');
+        }
+    }
 </script>
+
+<!-- MODAL CALCULADORA RÁPIDA DE COLMADO -->
+<div id="posCalculatorModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity">
+    <div class="relative w-full max-w-xs bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden p-4 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div class="flex items-center gap-2">
+                <i data-lucide="calculator" class="w-4 h-4 text-orange-600"></i>
+                <h3 class="text-sm font-bold text-slate-900">Calculadora de Caja</h3>
+            </div>
+            <button type="button" onclick="closePosCalculatorModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Pantalla de la calculadora -->
+        <div class="bg-slate-900 text-white rounded-xl p-3 text-right shadow-inner">
+            <div id="calcFormula" class="text-[11px] text-slate-400 font-mono h-4 overflow-hidden truncate"></div>
+            <div id="calcDisplay" class="text-2xl font-black font-mono tracking-tight text-emerald-400 truncate">0</div>
+        </div>
+
+        <!-- Teclado de la calculadora -->
+        <div class="grid grid-cols-4 gap-1.5 font-bold text-sm">
+            <button type="button" onclick="calcAction('C')" class="py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition">C</button>
+            <button type="button" onclick="calcAction('DEL')" class="py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl transition">⌫</button>
+            <button type="button" onclick="calcAction('/')" class="py-2.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-xl transition">÷</button>
+            <button type="button" onclick="calcAction('*')" class="py-2.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-xl transition">×</button>
+
+            <button type="button" onclick="calcAction('7')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">7</button>
+            <button type="button" onclick="calcAction('8')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">8</button>
+            <button type="button" onclick="calcAction('9')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">9</button>
+            <button type="button" onclick="calcAction('-')" class="py-2.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-xl transition">−</button>
+
+            <button type="button" onclick="calcAction('4')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">4</button>
+            <button type="button" onclick="calcAction('5')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">5</button>
+            <button type="button" onclick="calcAction('6')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">6</button>
+            <button type="button" onclick="calcAction('+')" class="py-2.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-xl transition">+</button>
+
+            <button type="button" onclick="calcAction('1')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">1</button>
+            <button type="button" onclick="calcAction('2')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">2</button>
+            <button type="button" onclick="calcAction('3')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">3</button>
+            <button type="button" onclick="calcAction('=')" class="row-span-2 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl transition flex items-center justify-center font-black text-base shadow-sm">=</button>
+
+            <button type="button" onclick="calcAction('0')" class="col-span-2 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">0</button>
+            <button type="button" onclick="calcAction('.')" class="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl transition">.</button>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100">
+            <button type="button" onclick="calcUseAsReceived()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Aplicar Monto a Cobro</span>
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}

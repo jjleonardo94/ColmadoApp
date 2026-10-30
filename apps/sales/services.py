@@ -489,9 +489,12 @@ class DeliveryService:
         order.dispatched_at = timezone.now()
         order.dispatched_by = user
 
-        # Formatear mensaje individual de WhatsApp con datos reales
+        # Formatear mensaje individual de WhatsApp con datos reales (incluyendo el monto de la compra)
         settings = BusinessSettings.get_settings()
-        template = settings.delivery_notification_template or "Hola, {cliente}. Tu pedido ({ticket}) ya está preparado y ha salido para entrega. Gracias por preferirnos."
+        default_tpl = "Hola *{cliente}*, su pedido ({ticket}) por un monto de *{total}* ya ha salido con {repartidor}. ¡Muchas gracias por su compra en {negocio}!"
+        template = settings.delivery_notification_template or default_tpl
+        if '{total}' not in template:
+            template += " Monto a pagar: *{total}*."
 
         client_name = order.customer.name if order.customer else "estimado cliente"
         ticket_num = order.sale.ticket_number

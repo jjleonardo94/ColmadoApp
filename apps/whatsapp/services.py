@@ -264,6 +264,26 @@ class WhatsAppService:
         ).hexdigest()
         return hmac.compare_digest(expected_sig, calculated_sig)
 
+    @staticmethod
+    def sanitize_message_content(content: str) -> str:
+        """
+        Sanitiza el contenido de los mensajes para evitar que credenciales críticas
+        (como contraseñas de administradores o accesos) queden expuestas en la bandeja pública.
+        """
+        if not content:
+            return content
+        content = re.sub(
+            r'(?i)\b(contrase[ñn]a|clave|password|pass)\s*[:=]\s*[^\s\n]+',
+            r'\1: [PROTEGIDO POR SEGURIDAD]',
+            content
+        )
+        content = re.sub(
+            r'\badmin123\b',
+            '[PROTEGIDO]',
+            content
+        )
+        return content
+
     @classmethod
     @transaction.atomic
     def process_incoming_webhook(cls, payload: dict) -> list:
@@ -419,6 +439,8 @@ class WhatsAppService:
                 content = caption if caption else "[Archivo multimedia recibido]"
             elif not content:
                 content = "[Mensaje sin texto]"
+            else:
+                content = cls.sanitize_message_content(content)
 
             # 3. Buscar o crear Contacto con Jerarquía Profesional de Nombres
             matched_customer = Customer.objects.filter(
@@ -653,11 +675,12 @@ class WhatsAppService:
                 defaults={'status': ConversationStatus.EN_ATENCION}
             )
 
+        clean_saved_text = cls.sanitize_message_content(text)
         msg_record = WhatsAppMessage(
             conversation=conversation,
             direction=MessageDirection.OUTBOUND,
             message_type='text',
-            content=text,
+            content=clean_saved_text,
             sent_by=user,
         )
 
@@ -679,7 +702,7 @@ class WhatsAppService:
                 msg_record.wamid = str(raw_wamid)[:140]
                 msg_record.status = MessageStatus.SENT
                 msg_record.save()
-                conversation.last_message_text = text
+                conversation.last_message_text = clean_saved_text
                 conversation.last_message_at = timezone.now()
                 conversation.save(update_fields=['last_message_text', 'last_message_at'])
                 return msg_record
@@ -689,7 +712,7 @@ class WhatsAppService:
                     msg_record.status = MessageStatus.FAILED
                     msg_record.error_message = waha_res.get('error', 'Error desconocido al conectar con WAHA')
                     msg_record.save()
-                    conversation.last_message_text = text
+                    conversation.last_message_text = clean_saved_text
                     conversation.last_message_at = timezone.now()
                     conversation.save(update_fields=['last_message_text', 'last_message_at'])
                     return msg_record

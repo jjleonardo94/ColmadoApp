@@ -441,12 +441,38 @@ class WhatsAppCreateSaleView(LoginRequiredMixin, View):
                     user=request.user,
                 )
 
-            # 5. Notificación automática por WhatsApp (sin iconos ni emojis)
+            # 5. Notificación automática por WhatsApp con el monto explícito de la compra
             settings = BusinessSettings.get_settings()
-            if destination_type == 'EXPRESS':
-                conf_msg = f"Hola {customer.name}, su pedido va de camino. Muchas gracias por su compra en {settings.name}."
+            total_fmt = f"RD$ {sale.total:,.2f}"
+            ticket_tag = f"Ticket #{sale.ticket_number}"
+
+            items_lines = []
+            if sale.items.exists():
+                for it in sale.items.select_related('product').all()[:6]:
+                    items_lines.append(f"• {it.quantity:g}x {it.product.name} (RD$ {it.subtotal:,.2f})")
+                if sale.items.count() > 6:
+                    items_lines.append(f"• ... y {sale.items.count() - 6} artículos más.")
+            items_summary = "\n" + "\n".join(items_lines) + "\n" if items_lines else ""
+
+            if sale_type == 'CREDITO':
+                conf_msg = (
+                    f"*{settings.name}*\n"
+                    f"Hola *{customer.name}*, confirmamos su compra a crédito ({ticket_tag}):\n"
+                    f"{items_summary}\n"
+                    f"• *Monto de esta compra:* {total_fmt}\n"
+                    f"• *Balance total adeudado:* RD$ {customer.current_balance:,.2f}\n\n"
+                    f"{'Su pedido va de camino con el delivery.' if destination_type == 'EXPRESS' else 'Su pedido está preparado.'}\n"
+                    f"¡Muchas gracias por su preferencia!"
+                )
             else:
-                conf_msg = f"Hola {customer.name}, su pedido está listo para entrega. Muchas gracias por su compra en {settings.name}."
+                conf_msg = (
+                    f"*{settings.name}*\n"
+                    f"Hola *{customer.name}*, confirmamos su compra ({ticket_tag}):\n"
+                    f"{items_summary}\n"
+                    f"• *Monto total de la compra:* {total_fmt} ({sale.get_payment_method_display()})\n\n"
+                    f"{'Su pedido va de camino con el delivery.' if destination_type == 'EXPRESS' else 'Su pedido está preparado.'}\n"
+                    f"¡Muchas gracias por su compra!"
+                )
 
             WhatsAppService.send_text_message(
                 phone_number=contact.phone,
