@@ -212,7 +212,7 @@
 
 <!-- ================= MODAL: CANTIDAD / LIBRAS (Para todos los productos) ================= -->
 <div id="qtyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-sm w-full shadow-xl border border-slate-200 overflow-hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden my-auto">
         <!-- Header -->
         <div class="p-5 border-b border-slate-100">
             <div class="flex items-start justify-between gap-3">
@@ -230,32 +230,32 @@
         <div class="p-5 space-y-4">
             <!-- Tipo: unidades enteras -->
             <div id="qtyUnitSection">
-                <label class="block text-xs font-semibold text-slate-700 mb-2">Cantidad a Agregar</label>
-                <div class="flex items-center gap-3">
+                <label class="block text-xs font-semibold text-slate-700 mb-1.5">Cantidad a Agregar</label>
+                <div class="flex items-center gap-2">
                     <button type="button" onclick="qtyModalAdjust(-1)"
-                            class="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-xl flex items-center justify-center transition">−</button>
+                            class="w-11 h-11 shrink-0 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg flex items-center justify-center transition active:scale-95 shadow-2xs">−</button>
                     <input type="number" id="qtyModalInput" value="1" min="1" step="1"
-                           class="flex-1 text-center text-2xl font-black text-slate-900 border-2 border-slate-200 rounded-xl py-2 focus:outline-none focus:border-orange-500"
+                           class="flex-1 min-w-0 text-center text-2xl font-black text-slate-900 bg-slate-50/50 border-2 border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-orange-500 focus:bg-white transition"
                            oninput="qtyModalUpdateTotal()">
                     <button type="button" onclick="qtyModalAdjust(1)"
-                            class="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-xl flex items-center justify-center transition">+</button>
+                            class="w-11 h-11 shrink-0 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg flex items-center justify-center transition active:scale-95 shadow-2xs">+</button>
                 </div>
             </div>
 
             <!-- Tipo: fraccionado (por libra/peso) -->
             <div id="qtyWeightSection" class="hidden space-y-3">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">
                         ¿Cuántas <span id="qtyWeightUnitLabel">libras</span> le das al cliente?
                     </label>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
                         <button type="button" onclick="qtyModalAdjust(-0.5)"
-                                class="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg flex items-center justify-center transition">−½</button>
-                        <input type="number" id="qtyWeightInput" value="1" min="0.1" step="0.1"
-                               class="flex-1 text-center text-2xl font-black text-slate-900 border-2 border-slate-200 rounded-xl py-2 focus:outline-none focus:border-orange-500"
+                                class="w-11 h-11 shrink-0 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-2xs">−½</button>
+                        <input type="number" id="qtyWeightInput" value="1" min="0.05" step="0.1"
+                               class="flex-1 min-w-0 text-center text-2xl font-black text-slate-900 bg-slate-50/50 border-2 border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-orange-500 focus:bg-white transition"
                                oninput="qtyModalUpdateTotal()">
                         <button type="button" onclick="qtyModalAdjust(0.5)"
-                                class="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg flex items-center justify-center transition">+½</button>
+                                class="w-11 h-11 shrink-0 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-2xs">+½</button>
                     </div>
                 </div>
 
