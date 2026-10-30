@@ -16,6 +16,17 @@
         color: #475569;
         font-weight: bold;
     }
+    /* Asegura que el grid de productos use columns responsivas al tamaño disponible */
+    #productsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+    }
+    /* Card de producto: altura fija para que queden parejos */
+    .product-card {
+        min-height: 110px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
 </style>
 {% endblock %}
 
@@ -53,43 +64,52 @@
             </div>
         </div>
 
-        <!-- Product Cards Grid / List -->
+        <!-- Product Cards Grid -->
         <div class="flex-1 p-4 overflow-y-auto">
-            <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div id="productsGrid" class="grid gap-3">
                 {% for p in popular_products %}
-                <div onclick="handleProductCardClick(this)"
+                <div onclick="onProductCardClick(this)"
                      data-id="{{ p.id }}"
                      data-name="{{ p.name|escapejs }}"
                      data-price="{{ p.sale_price|stringformat:'.4f' }}"
                      data-stock="{{ p.current_stock|stringformat:'.4f' }}"
                      data-sale-type="{{ p.sale_type }}"
                      data-unit="{{ p.get_unit_of_measure_display|escapejs }}"
+                     data-unit-code="{{ p.unit_of_measure }}"
                      data-allows-decimals="{{ p.allows_decimals|lower }}"
-                     class="group relative bg-white border border-slate-200 rounded-xl p-3 flex flex-col justify-between cursor-pointer hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98]">
+                     data-category="{{ p.category.name|escapejs }}"
+                     class="product-card group relative bg-white border border-slate-200 rounded-xl p-3 cursor-pointer hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98] select-none">
                     <div>
-                        <div class="flex items-start justify-between gap-1 mb-1.5">
-                            <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">{{ p.category.name }}</span>
+                        <div class="flex items-start justify-between gap-1 mb-1">
+                            <span class="text-[9px] font-semibold text-slate-400 uppercase tracking-wide leading-tight">{{ p.category.name }}</span>
                             {% if p.is_out_of_stock %}
-                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600">Agotado</span>
+                            <span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600">Agotado</span>
                             {% elif p.is_low_stock %}
-                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-600">Bajo</span>
+                            <span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-600">Bajo</span>
                             {% endif %}
                         </div>
-                        <h4 class="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-600 transition-colors">{{ p.name }}</h4>
+                        <h4 class="text-xs font-bold text-slate-800 leading-snug group-hover:text-orange-600 transition-colors" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ p.name }}</h4>
                     </div>
-                    
-                    <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                        <div>
-                            <span class="text-sm font-extrabold text-slate-900">RD$ {{ p.sale_price|floatformat:2 }}</span>
-                            <span class="text-[10px] text-slate-400 block">/ {{ p.get_unit_of_measure_display }}</span>
+
+                    <div class="mt-2 pt-2 border-t border-slate-100">
+                        <div class="flex items-end justify-between gap-1">
+                            <div class="min-w-0">
+                                <span class="text-sm font-extrabold text-slate-900">RD$ {{ p.sale_price|floatformat:2 }}</span>
+                                <span class="text-[9px] text-slate-400 block">/ {{ p.get_unit_of_measure_display }}</span>
+                            </div>
+                            <span class="shrink-0 text-[10px] font-semibold text-slate-400">{{ p.current_stock|floatformat:1 }}</span>
                         </div>
-                        <span class="text-[11px] font-semibold text-slate-500">Stock: {{ p.current_stock|floatformat:1 }}</span>
+                        {% if p.sale_type == 'FRACTION' %}
+                        <div class="mt-1 text-[9px] font-bold text-orange-600 flex items-center gap-0.5">
+                            <span>⚖ Por peso/libra</span>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% empty %}
                 <div class="col-span-full text-center py-12 text-slate-400 text-sm">
                     <i data-lucide="package-search" class="w-10 h-10 mx-auto mb-2 stroke-1"></i>
-                    No hay productos en esta categoría o no coinciden con la búsqueda.
+                    No hay productos disponibles.
                 </div>
                 {% endfor %}
             </div>
@@ -142,7 +162,7 @@
             <div id="emptyCartMessage" class="text-center py-16 text-slate-400">
                 <i data-lucide="shopping-cart" class="w-12 h-12 mx-auto mb-2 text-slate-300 stroke-1"></i>
                 <p class="text-sm font-medium text-slate-500">El carrito está vacío</p>
-                <p class="text-xs text-slate-400 mt-1">Escanee un código de barras o seleccione productos del catálogo.</p>
+                <p class="text-xs text-slate-400 mt-1">Toque un producto del catálogo para agregarlo.</p>
             </div>
 
             <!-- Items List -->
@@ -175,7 +195,7 @@
 
         <!-- Action / Checkout Buttons -->
         <div class="p-4 border-t border-slate-100 bg-white grid grid-cols-2 gap-2">
-            <button type="button" onclick="openAmountSaleModal()" 
+            <button type="button" onclick="openAmountSaleModal()"
                     class="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors">
                 <i data-lucide="scale" class="w-4 h-4 text-slate-500"></i>
                 <span>Venta por Monto</span>
@@ -185,6 +205,96 @@
                     class="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-extrabold rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm transition-all hover:shadow active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none">
                 <span>Cobrar</span>
                 <span class="kbd-badge bg-orange-700 text-white border-orange-500">F1</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAL: CANTIDAD / LIBRAS (Para todos los productos) ================= -->
+<div id="qtyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full shadow-xl border border-slate-200 overflow-hidden">
+        <!-- Header -->
+        <div class="p-5 border-b border-slate-100">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <h3 class="font-bold text-slate-900 text-base leading-snug" id="qtyModalTitle">Producto</h3>
+                    <p class="text-xs text-slate-500 mt-0.5" id="qtyModalSubtitle">RD$ 0.00 / und</p>
+                </div>
+                <button type="button" onclick="closeQtyModal()" class="shrink-0 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="p-5 space-y-4">
+            <!-- Tipo: unidades enteras -->
+            <div id="qtyUnitSection">
+                <label class="block text-xs font-semibold text-slate-700 mb-2">Cantidad a Agregar</label>
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="qtyModalAdjust(-1)"
+                            class="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-xl flex items-center justify-center transition">−</button>
+                    <input type="number" id="qtyModalInput" value="1" min="1" step="1"
+                           class="flex-1 text-center text-2xl font-black text-slate-900 border-2 border-slate-200 rounded-xl py-2 focus:outline-none focus:border-orange-500"
+                           oninput="qtyModalUpdateTotal()">
+                    <button type="button" onclick="qtyModalAdjust(1)"
+                            class="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-xl flex items-center justify-center transition">+</button>
+                </div>
+            </div>
+
+            <!-- Tipo: fraccionado (por libra/peso) -->
+            <div id="qtyWeightSection" class="hidden space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                        ¿Cuántas <span id="qtyWeightUnitLabel">libras</span> le das al cliente?
+                    </label>
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="qtyModalAdjust(-0.5)"
+                                class="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg flex items-center justify-center transition">−½</button>
+                        <input type="number" id="qtyWeightInput" value="1" min="0.1" step="0.1"
+                               class="flex-1 text-center text-2xl font-black text-slate-900 border-2 border-slate-200 rounded-xl py-2 focus:outline-none focus:border-orange-500"
+                               oninput="qtyModalUpdateTotal()">
+                        <button type="button" onclick="qtyModalAdjust(0.5)"
+                                class="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg flex items-center justify-center transition">+½</button>
+                    </div>
+                </div>
+
+                <!-- Quick weight buttons -->
+                <div>
+                    <p class="text-[10px] text-slate-400 font-semibold uppercase mb-1.5">Cantidades Rápidas</p>
+                    <div class="grid grid-cols-4 gap-1.5 text-xs font-bold">
+                        <button type="button" onclick="setQtyWeight(0.25)" class="py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-lg transition">¼ lb</button>
+                        <button type="button" onclick="setQtyWeight(0.5)"  class="py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-lg transition">½ lb</button>
+                        <button type="button" onclick="setQtyWeight(1)"    class="py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-lg transition">1 lb</button>
+                        <button type="button" onclick="setQtyWeight(2)"    class="py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-lg transition">2 lb</button>
+                        <button type="button" onclick="setQtyWeight(3)"    class="py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-lg transition">3 lb</button>
+                        <button type="button" onclick="setQtyWeight(5)"    class="py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-lg transition">5 lb</button>
+                        <button type="button" onclick="setQtyWeight(10)"   class="py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-lg transition">10 lb</button>
+                        <button type="button" onclick="setQtyWeight(25)"   class="py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-lg transition">25 lb</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Precio calculado automáticamente -->
+            <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
+                <div class="text-xs text-slate-600">
+                    <span id="qtyModalCalcDetail" class="block">1 × RD$ 0.00</span>
+                    <span class="font-bold text-orange-700 text-base" id="qtyModalTotal">RD$ 0.00</span>
+                </div>
+                <i data-lucide="tag" class="w-6 h-6 text-orange-400"></i>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 border-t border-slate-100 flex gap-2">
+            <button type="button" onclick="closeQtyModal()"
+                    class="flex-1 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                Cancelar
+            </button>
+            <button type="button" onclick="confirmQtyModal()"
+                    class="flex-1 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>Agregar al Ticket</span>
             </button>
         </div>
     </div>
@@ -204,7 +314,7 @@
         </div>
 
         <p class="text-xs text-slate-500">
-            Ideal para colmados cuando el cliente pide: <em>"Deme RD$ 50 de salami"</em> o <em>"RD$ 100 de queso"</em>. 
+            Ideal para colmados cuando el cliente pide: <em>"Deme RD$ 50 de salami"</em> o <em>"RD$ 100 de queso"</em>.
             El sistema calculará la cantidad fraccionada exacta según el precio por libra/litro.
         </p>
 
@@ -315,6 +425,125 @@
     let currentPayTab = 'EFECTIVO';
     let isSubmitting = false;
 
+    // Estado del modal de cantidad
+    let _qtyProduct = null; // { id, name, price, stock, saleType, unit, unitCode, allowsDecimals }
+
+    // --- CLICK EN CARD DE PRODUCTO ---
+    function onProductCardClick(el) {
+        if (!el) return;
+        const id = parseInt(el.dataset.id);
+        const name = el.dataset.name;
+        const price = parseFloat(el.dataset.price);
+        const stock = parseFloat(el.dataset.stock);
+        const saleType = el.dataset.saleType;
+        const unit = el.dataset.unit;
+        const unitCode = el.dataset.unitCode;
+        const allowsDec = el.dataset.allowsDecimals === 'true';
+
+        // Para productos fraccionados (por peso/libra), abre el modal de cantidad/libras
+        // Para productos por unidad, agrega directamente al carrito
+        if (allowsDec || saleType === 'FRACTION') {
+            openQtyModal({ id, name, price, stock, saleType, unit, unitCode, allowsDecimals: true });
+        } else {
+            // Agregar directo al carrito con retroalimentación visual
+            addProductToCart(id, name, price, stock, saleType, unit, false);
+            // Feedback visual en el card
+            el.classList.add('border-orange-500', 'shadow-md');
+            setTimeout(() => el.classList.remove('border-orange-500', 'shadow-md'), 300);
+        }
+    }
+
+    // --- MODAL DE CANTIDAD / LIBRAS ---
+    function openQtyModal(product) {
+        _qtyProduct = product;
+        const isWeight = product.allowsDecimals;
+
+        document.getElementById('qtyModalTitle').textContent = product.name;
+        document.getElementById('qtyModalSubtitle').textContent = `RD$ ${product.price.toFixed(2)} / ${product.unit}`;
+
+        // Mostrar sección correcta
+        document.getElementById('qtyUnitSection').classList.toggle('hidden', isWeight);
+        document.getElementById('qtyWeightSection').classList.toggle('hidden', !isWeight);
+
+        if (isWeight) {
+            document.getElementById('qtyWeightInput').value = '1';
+            document.getElementById('qtyWeightUnitLabel').textContent = product.unit;
+        } else {
+            document.getElementById('qtyModalInput').value = '1';
+        }
+
+        qtyModalUpdateTotal();
+        document.getElementById('qtyModal').classList.remove('hidden');
+
+        // Focus al input correcto
+        setTimeout(() => {
+            const inp = isWeight
+                ? document.getElementById('qtyWeightInput')
+                : document.getElementById('qtyModalInput');
+            inp.focus();
+            inp.select();
+        }, 100);
+    }
+
+    function closeQtyModal() {
+        document.getElementById('qtyModal').classList.add('hidden');
+        _qtyProduct = null;
+    }
+
+    function qtyModalAdjust(delta) {
+        if (!_qtyProduct) return;
+        const isWeight = _qtyProduct.allowsDecimals;
+        const inp = document.getElementById(isWeight ? 'qtyWeightInput' : 'qtyModalInput');
+        const minVal = isWeight ? 0.1 : 1;
+        let val = parseFloat(inp.value) || minVal;
+        val = Math.max(minVal, Math.round((val + delta) * 1000) / 1000);
+        inp.value = val;
+        qtyModalUpdateTotal();
+    }
+
+    function setQtyWeight(val) {
+        document.getElementById('qtyWeightInput').value = val;
+        qtyModalUpdateTotal();
+    }
+
+    function qtyModalUpdateTotal() {
+        if (!_qtyProduct) return;
+        const isWeight = _qtyProduct.allowsDecimals;
+        const inp = document.getElementById(isWeight ? 'qtyWeightInput' : 'qtyModalInput');
+        const qty = parseFloat(inp.value) || 0;
+        const total = qty * _qtyProduct.price;
+        const unitLabel = _qtyProduct.unit;
+
+        document.getElementById('qtyModalCalcDetail').textContent =
+            `${qty.toFixed(isWeight ? 3 : 0)} ${unitLabel} × RD$ ${_qtyProduct.price.toFixed(2)}`;
+        document.getElementById('qtyModalTotal').textContent =
+            `RD$ ${total.toLocaleString('es-DO', {minimumFractionDigits: 2})}`;
+    }
+
+    function confirmQtyModal() {
+        if (!_qtyProduct) return;
+        const isWeight = _qtyProduct.allowsDecimals;
+        const inp = document.getElementById(isWeight ? 'qtyWeightInput' : 'qtyModalInput');
+        const qty = parseFloat(inp.value) || 0;
+
+        if (qty <= 0) {
+            showToast('Ingrese una cantidad válida.', 'warning');
+            return;
+        }
+
+        addProductToCart(
+            _qtyProduct.id,
+            _qtyProduct.name,
+            _qtyProduct.price,
+            _qtyProduct.stock,
+            _qtyProduct.saleType,
+            _qtyProduct.unit,
+            _qtyProduct.allowsDecimals,
+            qty
+        );
+        closeQtyModal();
+    }
+
     // --- CARGAR / FILTRAR PRODUCTOS ---
     function filterByCategory(catId) {
         document.querySelectorAll('.cat-filter-btn').forEach(btn => {
@@ -345,7 +574,17 @@
                     .then(data => {
                         if (data.products && data.products.length > 0) {
                             const p = data.products[0];
-                            addProductToCart(p.id, p.name, parseFloat(p.sale_price), parseFloat(p.current_stock), p.sale_type, p.unit_of_measure, p.allows_decimals);
+                            const allowsDec = p.allows_decimals;
+                            if (allowsDec || p.sale_type === 'FRACTION') {
+                                openQtyModal({
+                                    id: p.id, name: p.name, price: parseFloat(p.sale_price),
+                                    stock: parseFloat(p.current_stock), saleType: p.sale_type,
+                                    unit: p.unit_of_measure, unitCode: p.unit_of_measure,
+                                    allowsDecimals: true
+                                });
+                            } else {
+                                addProductToCart(p.id, p.name, parseFloat(p.sale_price), parseFloat(p.current_stock), p.sale_type, p.unit_of_measure, false);
+                            }
                             searchInput.value = '';
                         }
                     });
@@ -373,28 +612,41 @@
 
                 data.products.forEach(p => {
                     const stock = parseFloat(p.current_stock);
+                    const price = parseFloat(p.sale_price);
                     const isOut = stock <= 0;
                     const isLow = stock > 0 && stock <= 5;
                     const allowsDec = p.allows_decimals;
+                    const isFraction = allowsDec || p.sale_type === 'FRACTION';
 
                     const card = document.createElement('div');
-                    card.className = "group relative bg-white border border-slate-200 rounded-xl p-3 flex flex-col justify-between cursor-pointer hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98]";
-                    card.onclick = () => addProductToCart(p.id, p.name, parseFloat(p.sale_price), stock, p.sale_type, p.unit_of_measure, allowsDec);
+                    card.className = "product-card group relative bg-white border border-slate-200 rounded-xl p-3 cursor-pointer hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98] select-none";
+                    card.dataset.id = p.id;
+                    card.dataset.name = p.name;
+                    card.dataset.price = price.toFixed(4);
+                    card.dataset.stock = stock.toFixed(4);
+                    card.dataset.saleType = p.sale_type;
+                    card.dataset.unit = p.unit_of_measure;
+                    card.dataset.unitCode = p.unit_of_measure;
+                    card.dataset.allowsDecimals = allowsDec ? 'true' : 'false';
+                    card.onclick = () => onProductCardClick(card);
 
                     card.innerHTML = `
                         <div>
-                            <div class="flex items-start justify-between gap-1 mb-1.5">
-                                <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">${p.unit_of_measure}</span>
-                                ${isOut ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600">Agotado</span>' : (isLow ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-600">Bajo</span>' : '')}
+                            <div class="flex items-start justify-between gap-1 mb-1">
+                                <span class="text-[9px] font-semibold text-slate-400 uppercase tracking-wide leading-tight">${p.unit_of_measure}</span>
+                                ${isOut ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600">Agotado</span>' : (isLow ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-600">Bajo</span>' : '')}
                             </div>
-                            <h4 class="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-600 transition-colors">${p.name}</h4>
+                            <h4 class="text-xs font-bold text-slate-800 leading-snug group-hover:text-orange-600 transition-colors" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${p.name}</h4>
                         </div>
-                        <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                            <div>
-                                <span class="text-sm font-extrabold text-slate-900">RD$ ${parseFloat(p.sale_price).toFixed(2)}</span>
-                                <span class="text-[10px] text-slate-400 block">/ ${p.unit_of_measure}</span>
+                        <div class="mt-2 pt-2 border-t border-slate-100">
+                            <div class="flex items-end justify-between gap-1">
+                                <div class="min-w-0">
+                                    <span class="text-sm font-extrabold text-slate-900">RD$ ${price.toFixed(2)}</span>
+                                    <span class="text-[9px] text-slate-400 block">/ ${p.unit_of_measure}</span>
+                                </div>
+                                <span class="shrink-0 text-[10px] font-semibold text-slate-400">${stock.toFixed(allowsDec ? 1 : 0)}</span>
                             </div>
-                            <span class="text-[11px] font-semibold text-slate-500">Stock: ${stock.toFixed(allowsDec ? 2 : 0)}</span>
+                            ${isFraction ? '<div class="mt-1 text-[9px] font-bold text-orange-600">⚖ Por peso/libra</div>' : ''}
                         </div>
                     `;
                     grid.appendChild(card);
@@ -424,6 +676,7 @@
             });
         }
         renderCart();
+        showToast(`✓ ${name} agregado`, 'success');
     }
 
     function updateItemQty(index, newQty) {
@@ -460,18 +713,6 @@
                 showToast('Carrito vaciado', 'info');
             }
         });
-    }
-
-    function handleProductCardClick(el) {
-        if (!el) return;
-        const id = parseInt(el.dataset.id);
-        const name = el.dataset.name;
-        const price = parseFloat(el.dataset.price);
-        const stock = parseFloat(el.dataset.stock);
-        const saleType = el.dataset.saleType;
-        const unit = el.dataset.unit;
-        const allowsDec = el.dataset.allowsDecimals === 'true';
-        addProductToCart(id, name, price, stock, saleType, unit, allowsDec);
     }
 
     function renderCart() {
@@ -511,7 +752,7 @@
                 </div>
 
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <button type="button" onclick="updateItemQty(${index}, ${item.quantity - (item.allows_decimals ? 0.5 : 1)})" 
+                    <button type="button" onclick="updateItemQty(${index}, ${item.quantity - (item.allows_decimals ? 0.5 : 1)})"
                             class="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold">-</button>
                     <input type="number" step="${item.allows_decimals ? '0.05' : '1'}" min="0.01" value="${item.quantity}"
                            onchange="updateItemQty(${index}, this.value)"
@@ -532,10 +773,10 @@
         document.getElementById('cartSubtotal').innerText = 'RD$ ' + subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2});
         document.getElementById('cartDiscount').innerText = 'RD$ ' + discount.toLocaleString('es-DO', {minimumFractionDigits: 2});
         document.getElementById('cartTotal').innerText = 'RD$ ' + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
-        
+
         const totalUSD = total / USD_RATE;
         document.getElementById('cartTotalUSD').innerText = 'US$ ' + totalUSD.toFixed(2);
-        btnCheckout.disabled = false;
+        if (btnCheckout) btnCheckout.disabled = false;
         lucide.createIcons();
     }
 
@@ -731,6 +972,50 @@
         }
     }
 
+    function setCashReceived(amt) {
+        const inp = document.getElementById('cashReceivedInput');
+        if (inp) {
+            inp.value = Math.round(amt * 100) / 100;
+            calculateCashChange();
+        }
+    }
+
+    // --- TOGGLE PAGO DIVIDIDO ---
+    function toggleSplitPayment() {
+        const checked = document.getElementById('splitPaymentCheckbox').checked;
+        document.getElementById('splitPaymentContainer').classList.toggle('hidden', !checked);
+        if (checked) buildSplitLines();
+    }
+
+    function buildSplitLines() {
+        const total = getCartTotal();
+        const container = document.getElementById('splitLinesList');
+        const methods = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA'];
+        container.innerHTML = methods.map(m => `
+            <div class="flex items-center gap-2">
+                <span class="w-24 text-xs font-semibold text-slate-600">${m}</span>
+                <input type="number" id="split-${m}" step="any" min="0" value="0" placeholder="0.00"
+                       onchange="updateSplitTotals()"
+                       class="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-center focus:outline-none focus:border-orange-500">
+                <span class="text-[10px] text-slate-400">RD$</span>
+            </div>
+        `).join('');
+        document.getElementById('splitAssigned').innerText = 'RD$ 0.00';
+        document.getElementById('splitRemaining').innerText = 'RD$ ' + total.toFixed(2);
+    }
+
+    function updateSplitTotals() {
+        const total = getCartTotal();
+        let assigned = 0;
+        ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA'].forEach(m => {
+            const el = document.getElementById('split-' + m);
+            if (el) assigned += parseFloat(el.value) || 0;
+        });
+        const remaining = total - assigned;
+        document.getElementById('splitAssigned').innerText = 'RD$ ' + assigned.toFixed(2);
+        document.getElementById('splitRemaining').innerText = 'RD$ ' + Math.max(0, remaining).toFixed(2);
+    }
+
     // --- ENVIAR TRANSACCIÓN ATÓMICA DE VENTA AL SERVIDOR ---
     function submitSaleTransaction() {
         if (isSubmitting) return;
@@ -747,56 +1032,64 @@
         }));
 
         // Construir pagos
+        const splitEnabled = document.getElementById('splitPaymentCheckbox').checked;
         let paymentsPayload = [];
-        let currencyReceived = 'DOP';
-        let amountReceived = total;
 
-        const splitCheckbox = document.getElementById('splitPaymentCheckbox');
-        if (splitCheckbox && splitCheckbox.checked) {
-            // Pagos divididos
-            paymentsPayload = collectSplitPayments();
+        if (splitEnabled) {
+            ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA'].forEach(m => {
+                const el = document.getElementById('split-' + m);
+                if (el) {
+                    const amt = parseFloat(el.value) || 0;
+                    if (amt > 0) paymentsPayload.push({ method: m, amount: amt });
+                }
+            });
+            if (paymentsPayload.length === 0) {
+                showToast('Asigne al menos un monto de pago en el desglose.', 'warning');
+                return;
+            }
         } else {
-            // Pago único
             if (currentPayTab === 'EFECTIVO') {
-                currencyReceived = document.getElementById('cashCurrencySelect')?.value || 'DOP';
-                amountReceived = parseFloat(document.getElementById('cashReceivedInput')?.value) || total;
-                paymentsPayload.push({ method: 'EFECTIVO', amount: total, reference: '' });
+                const rawRec = parseFloat(document.getElementById('cashReceivedInput')?.value) || 0;
+                const curr = document.getElementById('cashCurrencySelect')?.value || 'DOP';
+                let amtDOP = rawRec;
+                if (curr === 'USD') amtDOP = rawRec * USD_RATE;
+                if (curr === 'EUR') amtDOP = rawRec * EUR_RATE;
+                paymentsPayload = [{ method: 'EFECTIVO', amount: Math.min(amtDOP, total), currency: curr, raw_received: rawRec }];
             } else if (currentPayTab === 'TARJETA') {
                 const ref = document.getElementById('cardRefInput')?.value || '';
-                paymentsPayload.push({ method: 'TARJETA', amount: total, reference: ref });
+                paymentsPayload = [{ method: 'TARJETA', amount: total, reference: ref }];
             } else if (currentPayTab === 'TRANSFERENCIA') {
                 const ref = document.getElementById('transferRefInput')?.value || '';
-                paymentsPayload.push({ method: 'TRANSFERENCIA', amount: total, reference: ref });
+                paymentsPayload = [{ method: 'TRANSFERENCIA', amount: total, reference: ref }];
             } else if (currentPayTab === 'FIADO') {
                 if (!customerId) {
-                    showToast("Para vender a crédito debe seleccionar un cliente.", "warning");
+                    showToast('Seleccione un cliente para registrar ventas a crédito.', 'warning');
                     return;
                 }
-                paymentsPayload.push({ method: 'FIADO', amount: total, reference: 'Venta a crédito' });
+                paymentsPayload = [{ method: 'FIADO', amount: total }];
             }
         }
 
-        const payload = {
-            items: itemsPayload,
-            payments: paymentsPayload,
-            customer_id: customerId,
-            currency: currencyReceived,
-            amount_received: amountReceived,
-            notes: '',
-        };
-
         const btnConfirm = document.getElementById('btnConfirmSale');
-        btnConfirm.disabled = true;
-        btnConfirm.innerText = "Procesando venta...";
         isSubmitting = true;
+        btnConfirm.disabled = true;
+        btnConfirm.innerHTML = '<i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i> Procesando...';
+        lucide.createIcons();
 
-        fetch('/pos/api/crear-venta/', {
+        fetch('/pos/api/ventas/crear/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken'),
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                items: itemsPayload,
+                payments: paymentsPayload,
+                customer_id: customerId,
+                currency: currentPayTab === 'EFECTIVO' ? (document.getElementById('cashCurrencySelect')?.value || 'DOP') : 'DOP',
+                amount_received: total,
+                notes: '',
+            })
         })
         .then(res => res.json())
         .then(data => {
@@ -804,26 +1097,26 @@
                 cart = [];
                 renderCart();
                 closePaymentModal();
-                // Redirigir directamente al recibo para impresión térmica
                 window.location.href = data.receipt_url;
             } else {
                 showToast("Error al procesar la venta: " + data.error, "error");
                 btnConfirm.disabled = false;
-                btnConfirm.innerText = "Confirmar Venta";
+                btnConfirm.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Confirmar Venta';
+                lucide.createIcons();
                 isSubmitting = false;
             }
         })
         .catch(err => {
             showToast("Error de conexión: " + err, "error");
             btnConfirm.disabled = false;
-            btnConfirm.innerText = "Confirmar Venta";
+            btnConfirm.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Confirmar Venta';
+            lucide.createIcons();
             isSubmitting = false;
         });
     }
 
     // --- TECLAS RÁPIDAS (F1-F4, ESC) ---
     window.addEventListener('keydown', (e) => {
-        // Evitar interceptar si se está escribiendo en un input
         const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
 
         if (e.key === 'F1') {
@@ -845,6 +1138,7 @@
         } else if (e.key === 'Escape') {
             closePaymentModal();
             closeAmountSaleModal();
+            closeQtyModal();
         }
     });
 
@@ -862,14 +1156,6 @@
             }
         }
         return cookieValue;
-    }
-
-    function setCashReceived(amt) {
-        const inp = document.getElementById('cashReceivedInput');
-        if (inp) {
-            inp.value = Math.round(amt * 100) / 100;
-            calculateCashChange();
-        }
     }
 
     // --- CALCULADORA RÁPIDA DE CAJA ---
