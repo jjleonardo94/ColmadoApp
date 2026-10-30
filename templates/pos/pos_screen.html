@@ -420,8 +420,8 @@
 <script>
     // --- ESTADO GLOBAL DEL POS ---
     let cart = [];
-    const USD_RATE = parseFloat("{{ settings.usd_rate|stringformat:\".4f\"|default:\"59.50\" }}");
-    const EUR_RATE = parseFloat("{{ settings.eur_rate|stringformat:\".4f\"|default:\"64.00\" }}");
+    const USD_RATE = parseFloat('{{ settings.usd_rate|stringformat:".4f"|default:"59.50" }}');
+    const EUR_RATE = parseFloat('{{ settings.eur_rate|stringformat:".4f"|default:"64.00" }}');
     let currentPayTab = 'EFECTIVO';
     let isSubmitting = false;
 
