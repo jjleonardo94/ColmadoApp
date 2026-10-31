@@ -225,10 +225,20 @@ class WAHAService:
                     'success': False,
                     'error': f"WAHA Error ({resp.status_code}): {err_text}"
                 }
+        except requests.exceptions.ConnectionError:
+            return {
+                'success': False,
+                'error': f"El servidor WAHA no está activo en {cls.get_api_url()}. Inicie el contenedor Docker (docker compose -f docker-compose.waha.yml up -d) para entregar los mensajes."
+            }
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'error': f"Tiempo de espera agotado al conectar con WAHA ({cls.get_api_url()})."
+            }
         except Exception as ex:
             return {
                 'success': False,
-                'error': f"Excepción al conectar con servidor WAHA ({cls.get_api_url()}): {str(ex)}"
+                'error': f"Error al conectar con servidor WAHA ({cls.get_api_url()}): {str(ex)}"
             }
 
 
