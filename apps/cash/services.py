@@ -30,10 +30,11 @@ class CashService:
                 f"La caja '{register.name}' ya tiene un turno abierto por {existing.cashier.username} desde {existing.opened_at.strftime('%d/%m/%Y %H:%M')}."
             )
 
-        user_open = CashShift.objects.filter(cashier=cashier, status=CashShiftStatus.ABIERTO).first()
+        user_open = CashShift.objects.filter(cashier=cashier, status=CashShiftStatus.ABIERTO).select_related('register', 'branch').first()
         if user_open:
+            branch_info = f" de '{user_open.branch.name}'" if user_open.branch else ""
             raise ValidationError(
-                f"El usuario {cashier.username} ya tiene un turno activo en la caja '{user_open.register.name}'. Debe cerrarlo primero."
+                f"El usuario {cashier.username} ya tiene un turno activo (#{user_open.id}){branch_info} en la caja '{user_open.register.name}'. Debe cerrarlo primero."
             )
 
         from apps.core.models import ColmadoBranch

@@ -83,7 +83,7 @@
         <div class="border-b border-slate-200 pb-4 flex justify-between items-start">
             <div>
                 <h3 class="text-xl font-bold text-slate-900">Cierre de Caja #{{ shift.id }}</h3>
-                <p class="text-slate-600 font-medium">{{ settings.name }} &bull; {{ shift.register.name }}</p>
+                <p class="text-slate-600 font-medium">{{ shift.branch.name|default:settings.name }} &bull; {{ shift.register.name }}</p>
                 <p class="text-slate-400 mt-1">
                     Cajero Responsable: <strong class="text-slate-700">{{ shift.cashier.get_full_name|default:shift.cashier.username }}</strong>
                     {% if shift.closed_by and shift.closed_by != shift.cashier %}

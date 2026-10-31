@@ -27,7 +27,8 @@ class CashShiftListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         qs = CashShift.objects.select_related('register', 'cashier', 'closed_by', 'difference_authorized_by').all().order_by('-opened_at')
         active_branch_id = self.request.session.get('active_branch_id')
-        if active_branch_id:
+        ver_todas = self.request.GET.get('todas_sucursales') == '1'
+        if active_branch_id and not ver_todas:
             qs = qs.filter(Q(branch_id=active_branch_id) | Q(branch__isnull=True))
 
         # Filtros
@@ -63,6 +64,8 @@ class CashShiftListView(LoginRequiredMixin, ListView):
         ctx['filter_caja'] = self.request.GET.get('caja', '')
         ctx['filter_estado'] = self.request.GET.get('estado', '')
         ctx['filter_diferencia'] = self.request.GET.get('con_diferencia', '')
+        ctx['ver_todas_sucursales'] = self.request.GET.get('todas_sucursales') == '1'
+        ctx['user_open_shift'] = CashShift.objects.filter(cashier=self.request.user, status=CashShiftStatus.ABIERTO).select_related('register', 'branch').first()
         return ctx
 
 
@@ -73,9 +76,10 @@ class OpenShiftView(LoginRequiredMixin, View):
             return redirect('cash_shift_list')
 
         # Verificar si el usuario ya tiene turno abierto
-        user_shift = CashShift.objects.filter(cashier=request.user, status=CashShiftStatus.ABIERTO).first()
+        user_shift = CashShift.objects.filter(cashier=request.user, status=CashShiftStatus.ABIERTO).select_related('register', 'branch').first()
         if user_shift:
-            messages.info(request, f"Ya tiene una caja abierta (#{user_shift.id}) en {user_shift.register.name}.")
+            branch_name = user_shift.branch.name if user_shift.branch else "Sucursal Principal"
+            messages.info(request, f"Ya tiene una caja abierta (#{user_shift.id}) en '{branch_name}' ({user_shift.register.name}). Debe cerrarla antes de abrir una nueva.")
             return redirect('cash_shift_detail', pk=user_shift.pk)
 
         form = OpenShiftForm()

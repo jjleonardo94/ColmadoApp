@@ -18,6 +18,19 @@
         </div>
 
         <div class="flex items-center gap-2">
+            {% if can_switch_branch %}
+                {% if ver_todas_sucursales %}
+                <a href="{% url 'cash_shift_list' %}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 transition flex items-center gap-1.5">
+                    <i data-lucide="store" class="w-3.5 h-3.5 text-orange-600"></i>
+                    <span>Ver solo {{ current_branch.name }}</span>
+                </a>
+                {% else %}
+                <a href="{% url 'cash_shift_list' %}?todas_sucursales=1" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 transition flex items-center gap-1.5" title="Ver cierres de todos los colmados">
+                    <i data-lucide="layers" class="w-3.5 h-3.5 text-slate-500"></i>
+                    <span>Ver todas las sucursales</span>
+                </a>
+                {% endif %}
+            {% endif %}
             {% if user.is_superuser or user.profile.perms.can_open_close_shifts %}
             <a href="{% url 'cash_open_shift' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all hover:scale-105">
                 <i data-lucide="plus-circle" class="w-4 h-4"></i>
@@ -26,6 +39,46 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Banner Informativo de Turno Actualmente Abierto (Si existe) -->
+    {% if user_open_shift %}
+    <div class="bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50 border border-amber-300 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+        <div class="flex items-start sm:items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <i data-lucide="unlock" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="font-bold text-slate-900 text-sm">Tiene una caja abierta: Cierre #{{ user_open_shift.id }}</h3>
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase">Turno Abierto</span>
+                    {% if user_open_shift.branch and user_open_shift.branch.id != current_branch.id %}
+                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-300">
+                        Sucursal: {{ user_open_shift.branch.name }}
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-slate-600 mt-1">
+                    Cajero: <strong>{{ user_open_shift.cashier.get_full_name|default:user_open_shift.cashier.username }}</strong> &bull;
+                    Caja: <strong>{{ user_open_shift.register.name }}</strong> &bull;
+                    Apertura: {{ user_open_shift.opened_at|date:"d/m/Y h:i A" }} &bull;
+                    Fondo inicial: <strong>RD$ {{ user_open_shift.initial_cash|floatformat:2 }}</strong>
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <a href="{% url 'cash_shift_detail' user_open_shift.id %}" class="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                <span>Ver Turno</span>
+            </a>
+            {% if user.profile.perms.can_open_close_shifts or user.is_superuser %}
+            <a href="{% url 'cash_close_shift' user_open_shift.id %}" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5">
+                <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                <span>Proceder al Cierre de Caja</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Filters Bar -->
     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
