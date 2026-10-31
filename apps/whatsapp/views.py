@@ -590,6 +590,24 @@ class WAHAStatusAjaxView(LoginRequiredMixin, View):
         return JsonResponse(health)
 
 
+class WAHAQRCodeView(LoginRequiredMixin, View):
+    """
+    Entrega la imagen del código QR de emparejamiento generado por WAHA.
+    Permite al usuario escanear directamente desde ColmadoPOS sin necesidad
+    de ingresar al panel técnico de WAHA.
+    """
+    def get(self, request):
+        from apps.whatsapp.services import WAHAService
+        url = f"{WAHAService.get_api_url()}/api/{WAHAService.get_session()}/auth/qr"
+        try:
+            resp = requests.get(url, headers=WAHAService.get_headers(), timeout=6)
+            if resp.status_code == 200:
+                return HttpResponse(resp.content, content_type=resp.headers.get('content-type', 'image/png'))
+        except Exception as e:
+            logger.warning("No se pudo obtener código QR de WAHA: %s", e)
+        raise Http404("Código QR no disponible o sesión ya vinculada.")
+
+
 class WhatsAppLiveUpdatesView(LoginRequiredMixin, View):
     """
     Endpoint AJAX para sondeo en vivo (real-time live polling):

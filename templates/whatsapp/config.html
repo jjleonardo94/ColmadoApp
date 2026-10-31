@@ -70,6 +70,27 @@
         </button>
       </div>
     </div>
+    {% if waha_health.online and waha_health.status == 'SCAN_QR_CODE' %}
+    <div class="mt-4 pt-4 border-t border-amber-200 flex flex-col md:flex-row items-center gap-6 bg-amber-50/60 p-4 rounded-xl">
+      <div class="p-2 bg-white rounded-xl border border-amber-200 shadow-sm shrink-0">
+        <img id="wahaQrImage" src="{% url 'whatsapp_waha_qr' %}" alt="Código QR WhatsApp" class="w-48 h-48 rounded-lg object-contain">
+      </div>
+      <div class="text-left space-y-2">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900">
+          <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
+          Paso obligatorio para enviar y recibir mensajes
+        </span>
+        <h4 class="font-bold text-slate-800 text-sm">Escanea este código con tu WhatsApp</h4>
+        <ol class="text-xs text-slate-600 list-decimal list-inside space-y-1">
+          <li>Abre WhatsApp en el celular del colmado.</li>
+          <li>Toca el menú de <strong>tres puntos</strong> (Android) o <strong>Configuración</strong> (iPhone).</li>
+          <li>Selecciona <strong>Dispositivos vinculados</strong> y presiona <strong>Vincular un dispositivo</strong>.</li>
+          <li>Apunta la cámara del celular a este código QR.</li>
+        </ol>
+        <p class="text-[11px] text-slate-500 italic mt-1">Una vez escaneado, la sesión cambiará a Conectada (WORKING) y ya podrás enviar y recibir mensajes.</p>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <!-- Escudo Anti-Baneo Activo -->
