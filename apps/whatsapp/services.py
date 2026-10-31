@@ -264,9 +264,10 @@ class WAHAService:
                 "url": target_url,
                 "filename": filename,
                 "mimetype": "image/png"
-            },
-            "caption": caption
+            }
         }
+        if caption and str(caption).strip():
+            payload["caption"] = str(caption).strip()
 
         try:
             resp = requests.post(url, json=payload, headers=cls.get_headers(), timeout=15)

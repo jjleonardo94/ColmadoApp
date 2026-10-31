@@ -605,19 +605,11 @@ class SaleService:
             else:
                 image_url = f"http://127.0.0.1:8000/media/{rel_path}"
 
-            caption = (
-                f"🧾 *Recibo de Compra — #{sale.ticket_number}*\n"
-                f"🏪 *{colmado_name.upper()}*\n"
-                f"📅 *Fecha:* {now_str}\n"
-                f"💰 *Total:* RD$ {sale.total:,.2f}\n"
-                f"Gracias por comprar en {colmado_name}."
-            )
-
-            # 2. Despachar imagen a través del servicio unificado de WhatsApp
+            # 2. Despachar únicamente la imagen del ticket (sin texto adicional ni pie de mensaje)
             msg_record = WhatsAppService.send_image_message(
                 phone_number=target_phone,
                 image_url=image_url,
-                caption=caption,
+                caption='',
                 filename=f"ticket_{sale.ticket_number}.png",
                 user=user,
                 relative_file_path=rel_path
