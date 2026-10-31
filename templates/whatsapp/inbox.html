@@ -30,24 +30,7 @@
   <div class="flex-1 flex min-h-0 overflow-hidden">
 
     <!-- Columna Izquierda: Lista de Conversaciones -->
-    <div class="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-white shrink-0 
-<!-- ================= MODAL LIGHTBOX: VER FOTO EXPANDIDA ================= -->
-<div id="mediaLightboxModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm transition-opacity" onclick="closeMediaLightbox()">
-  <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
-    <button type="button" onclick="closeMediaLightbox()" class="absolute -top-10 right-0 text-white/80 hover:text-white p-1 rounded-full transition">
-      <i data-lucide="x" class="w-6 h-6"></i>
-    </button>
-    <img id="lightboxImageElement" src="" alt="Foto expandida" class="max-h-[85vh] max-w-full rounded-2xl shadow-2xl object-contain border border-white/10">
-    <div class="mt-3 flex items-center gap-3">
-      <a id="lightboxDownloadBtn" href="" download target="_blank" class="px-4 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition">
-        <i data-lucide="download" class="w-3.5 h-3.5"></i>
-        <span>Descargar Imagen</span>
-      </a>
-    </div>
-  </div>
-</div>
-
-{% if selected_conv %}hidden md:flex{% endif %}">
+    <div class="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-white shrink-0 {% if selected_conv %}hidden md:flex{% endif %}">
       <!-- Buscador y Filtro -->
       <div class="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
         <form id="contactSearchForm" method="get" class="relative flex items-center">
@@ -1556,5 +1539,22 @@
     }
   });
 </script>
+
+
+<!-- ================= MODAL LIGHTBOX: VER FOTO EXPANDIDA ================= -->
+<div id="mediaLightboxModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm transition-opacity" onclick="closeMediaLightbox()">
+  <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+    <button type="button" onclick="closeMediaLightbox()" class="absolute -top-10 right-0 text-white/80 hover:text-white p-1 rounded-full transition">
+      <i data-lucide="x" class="w-6 h-6"></i>
+    </button>
+    <img id="lightboxImageElement" src="" alt="Foto expandida" class="max-h-[85vh] max-w-full rounded-2xl shadow-2xl object-contain border border-white/10">
+    <div class="mt-3 flex items-center gap-3">
+      <a id="lightboxDownloadBtn" href="" download target="_blank" class="px-4 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition">
+        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+        <span>Descargar Imagen</span>
+      </a>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
