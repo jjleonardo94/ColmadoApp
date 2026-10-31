@@ -665,7 +665,7 @@ class WhatsAppLiveUpdatesView(LoginRequiredMixin, View):
                         'is_document': m.is_document,
                         'status': m.status,
                         'time': timezone.localtime(m.created_at).strftime('%I:%M %p'),
-                        'error_message': m.error_message,
+                        'error_message': m.clean_error_message,
                     })
 
                 # Estados actualizados de los últimos 20 mensajes

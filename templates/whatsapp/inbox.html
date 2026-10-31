@@ -260,9 +260,10 @@
               {% endif %}
             </div>
           </div>
-          {% if msg.status == 'failed' and msg.error_message %}
-          <div class="text-[10px] text-rose-500 font-mono mt-0.5 max-w-[75%] text-right">
-            Nota de entrega: {{ msg.error_message }}
+          {% if msg.status == 'failed' and msg.clean_error_message %}
+          <div class="text-[11px] text-rose-500 font-medium mt-1 max-w-[75%] text-right flex items-center justify-end gap-1">
+            <i data-lucide="alert-triangle" class="w-3 h-3 shrink-0"></i>
+            <span>Nota de entrega: {{ msg.clean_error_message }}</span>
           </div>
           {% endif %}
         </div>
@@ -1234,7 +1235,7 @@
           ${isOutbound ? `<span class="status-indicator">${statusHtml}</span>` : ''}
         </div>
       </div>
-      ${msg.status === 'failed' && msg.error_message ? `<div class="text-[10px] text-rose-500 font-mono mt-0.5 max-w-[75%] text-right">Nota de entrega: ${escapeHtml(msg.error_message)}</div>` : ''}
+      ${msg.status === 'failed' && msg.error_message ? `<div class="text-[11px] text-rose-500 font-medium mt-1 max-w-[75%] text-right flex items-center justify-end gap-1"><i data-lucide="alert-triangle" class="w-3 h-3 shrink-0"></i><span>Nota de entrega: ${escapeHtml(msg.error_message)}</span></div>` : ''}
     `;
 
     feed.appendChild(msgDiv);

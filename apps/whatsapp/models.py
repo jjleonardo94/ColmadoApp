@@ -95,6 +95,17 @@ class WhatsAppMessage(models.Model):
         return self.content
 
     @property
+    def clean_error_message(self):
+        if not self.error_message:
+            return ""
+        err = self.error_message
+        if any(term in err for term in ['Connection refused', 'WinError 10061', 'Errno 111', 'HTTPConnectionPool', 'no está activo', 'target machine actively refused']):
+            return "No se pudo conectar con el servidor de WhatsApp (WAHA). Verifique que el servicio esté encendido."
+        if 'Timeout' in err or 'Tiempo de espera' in err:
+            return "Tiempo de espera agotado al enviar mensaje por WhatsApp."
+        return err
+
+    @property
     def has_media(self):
         return bool((self.media_file or self.media_url) and self.media_display_url)
 
