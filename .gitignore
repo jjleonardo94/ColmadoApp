@@ -43,3 +43,4 @@ ENV/
 .idea/
 .vscode/
 *.swp
+cloudflared.exe
