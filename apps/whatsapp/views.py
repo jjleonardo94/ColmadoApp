@@ -1,9 +1,11 @@
 import json
+import logging
+import requests
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import View
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, FileResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.conf import settings
@@ -204,7 +206,7 @@ class SendWhatsAppMessageView(LoginRequiredMixin, View):
                         'direction': msg_obj.direction,
                         'content': msg_obj.content,
                         'status': msg_obj.status,
-                        'time': msg_obj.created_at.strftime('%I:%M %p'),
+                        'time': timezone.localtime(msg_obj.created_at).strftime('%I:%M %p'),
                         'error_message': msg_obj.error_message,
                     }
                 })
@@ -301,7 +303,7 @@ class WhatsAppCreditActionView(LoginRequiredMixin, View):
         if is_ajax:
             last_msg = conv.messages.filter(direction='OUTBOUND').order_by('-created_at').first()
             receipt_text = last_msg.content if last_msg else success_msg
-            msg_time = last_msg.created_at.strftime('%I:%M %p') if last_msg else timezone.localtime().strftime('%I:%M %p')
+            msg_time = timezone.localtime(last_msg.created_at).strftime('%I:%M %p') if last_msg else timezone.localtime().strftime('%I:%M %p')
 
             return JsonResponse({
                 'success': True,
@@ -611,7 +613,7 @@ class WhatsAppLiveUpdatesView(LoginRequiredMixin, View):
                 'name': c.contact.display_name or c.contact.phone,
                 'phone': c.contact.phone,
                 'last_message': c.last_message_preview,
-                'time': c.last_message_at.strftime('%d/%m %H:%M') if c.last_message_at else '',
+                'time': timezone.localtime(c.last_message_at).strftime('%d/%m %I:%M %p') if c.last_message_at else '',
                 'unread_count': c.unread_count,
                 'has_customer': bool(c.contact.customer),
                 'customer_id': c.contact.customer.id if c.contact.customer else None,
@@ -653,9 +655,16 @@ class WhatsAppLiveUpdatesView(LoginRequiredMixin, View):
                     new_messages.append({
                         'id': m.id,
                         'direction': m.direction,
+                        'message_type': m.message_type,
                         'content': m.content,
+                        'media_url': m.media_display_url,
+                        'media_mime_type': m.media_mime_type,
+                        'is_image': m.is_image,
+                        'is_audio': m.is_audio,
+                        'is_video': m.is_video,
+                        'is_document': m.is_document,
                         'status': m.status,
-                        'time': m.created_at.strftime('%I:%M %p'),
+                        'time': timezone.localtime(m.created_at).strftime('%I:%M %p'),
                         'error_message': m.error_message,
                     })
 
@@ -727,4 +736,51 @@ class WhatsAppDeleteConversationView(LoginRequiredMixin, View):
 
         messages.success(request, 'Conversación eliminada exitosamente.')
         return redirect('whatsapp_inbox')
+
+
+class WhatsAppMediaProxyView(LoginRequiredMixin, View):
+    """
+    Entrega o retransmite de forma segura archivos multimedia (imágenes, audios, comprobantes PDF)
+    asociados a un mensaje de WhatsApp. Si el archivo no está en caché local, lo solicita a WAHA
+    o al servidor externo y lo guarda permanentemente en disco.
+    """
+    def get(self, request, pk):
+        msg = get_object_or_404(WhatsAppMessage, pk=pk)
+        if not (msg.media_file or msg.media_url):
+            raise Http404("El mensaje no contiene ningún archivo multimedia.")
+
+        # 1. Si ya se descargó y existe en el almacenamiento local
+        if msg.media_file:
+            try:
+                return FileResponse(msg.media_file.open('rb'), content_type=msg.media_mime_type or 'application/octet-stream')
+            except Exception:
+                pass
+
+        # 2. Si tiene URL remota (servidor WAHA o Meta)
+        if msg.media_url:
+            try:
+                from apps.whatsapp.services import WAHAService
+                headers = WAHAService.get_headers() if ('localhost:3000' in msg.media_url or 'api/files' in msg.media_url) else {}
+                resp = requests.get(msg.media_url, headers=headers, timeout=10)
+                if resp.status_code == 200:
+                    content_type = resp.headers.get('content-type') or msg.media_mime_type or 'application/octet-stream'
+
+                    # Guardar archivo en disco para caché local
+                    try:
+                        from django.core.files.base import ContentFile
+                        ext = '.jpg'
+                        if 'image' in content_type: ext = '.jpg'
+                        elif 'audio' in content_type: ext = '.ogg'
+                        elif 'video' in content_type: ext = '.mp4'
+                        elif 'pdf' in content_type: ext = '.pdf'
+                        filename = f"wa_{msg.id}_{msg.created_at.strftime('%Y%m%d%H%M%S')}{ext}"
+                        msg.media_file.save(filename, ContentFile(resp.content), save=True)
+                    except Exception as ex_save:
+                        logger.warning("No se pudo cachear archivo multimedia localmente: %s", ex_save)
+
+                    return HttpResponse(resp.content, content_type=content_type)
+            except Exception as e:
+                logger.error("Error al obtener media de WhatsApp (id=%s): %s", msg.id, e)
+
+        raise Http404("El archivo multimedia no está disponible.")
 

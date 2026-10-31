@@ -76,7 +76,10 @@ class WhatsAppMessage(models.Model):
     wamid = models.CharField('Meta WhatsApp Message ID', max_length=150, unique=True, null=True, blank=True)
     direction = models.CharField('Dirección', max_length=10, choices=MessageDirection.choices)
     message_type = models.CharField('Tipo de Contenido', max_length=30, default='text')
-    content = models.TextField('Texto / Contenido del Mensaje')
+    content = models.TextField('Texto / Contenido del Mensaje', blank=True, default='')
+    media_file = models.FileField('Archivo Multimedia Local', upload_to='whatsapp/%Y/%m/', null=True, blank=True)
+    media_url = models.CharField('URL Externa de Multimedia', max_length=500, blank=True, default='')
+    media_mime_type = models.CharField('Tipo MIME', max_length=100, blank=True, default='')
     status = models.CharField('Estado de Entrega', max_length=20, choices=MessageStatus.choices, default=MessageStatus.SENT)
     error_message = models.TextField('Detalle de Error', blank=True)
     sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Enviado por Usuario')
@@ -90,6 +93,34 @@ class WhatsAppMessage(models.Model):
     @property
     def text_content(self):
         return self.content
+
+    @property
+    def has_media(self):
+        return bool(self.media_file or self.media_url or self.message_type in ['image', 'audio', 'video', 'document', 'media'])
+
+    @property
+    def is_image(self):
+        return self.message_type == 'image' or (self.media_mime_type and self.media_mime_type.startswith('image/')) or any(self.media_url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif'])
+
+    @property
+    def is_audio(self):
+        return self.message_type == 'audio' or (self.media_mime_type and (self.media_mime_type.startswith('audio/') or 'voice' in self.media_mime_type)) or any(self.media_url.lower().endswith(ext) for ext in ['.ogg', '.mp3', '.m4a', '.wav'])
+
+    @property
+    def is_video(self):
+        return self.message_type == 'video' or (self.media_mime_type and self.media_mime_type.startswith('video/')) or any(self.media_url.lower().endswith(ext) for ext in ['.mp4', '.mov'])
+
+    @property
+    def is_document(self):
+        return self.message_type == 'document' or (self.media_mime_type and (self.media_mime_type.startswith('application/') or 'pdf' in self.media_mime_type)) or any(self.media_url.lower().endswith(ext) for ext in ['.pdf', '.doc', '.docx', '.xls', '.xlsx'])
+
+    @property
+    def media_display_url(self):
+        if self.media_file:
+            return self.media_file.url
+        if self.media_url:
+            return f"/whatsapp/mensaje/{self.id}/media/"
+        return ""
 
     def __str__(self):
         dir_lbl = "⬅️ Entrante" if self.direction == MessageDirection.INBOUND else "➡️ Saliente"

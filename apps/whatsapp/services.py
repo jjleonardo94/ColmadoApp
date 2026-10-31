@@ -440,13 +440,33 @@ class WhatsAppService:
                 webhook_log.save(update_fields=['processed'])
                 return []
 
-            # 2. Contenido del mensaje
+            # 2. Contenido del mensaje y Multimedia
             content = msg_data.get('body', '')
             msg_type = 'text'
-            if msg_data.get('hasMedia'):
-                msg_type = 'media'
+            media_url = ''
+            media_mime = ''
+
+            if msg_data.get('hasMedia') or msg_data.get('media'):
+                media_info = msg_data.get('media') or {}
+                if isinstance(media_info, dict):
+                    media_url = media_info.get('url', '') or ''
+                    media_mime = media_info.get('mimetype', '') or ''
+                if not media_mime:
+                    media_mime = msg_data.get('_data', {}).get('mimetype', '') or ''
+
+                if media_mime.startswith('image/'):
+                    msg_type = 'image'
+                elif media_mime.startswith('audio/') or 'voice' in media_mime:
+                    msg_type = 'audio'
+                elif media_mime.startswith('video/'):
+                    msg_type = 'video'
+                elif 'pdf' in media_mime or media_mime.startswith('application/'):
+                    msg_type = 'document'
+                else:
+                    msg_type = 'media'
+
                 caption = msg_data.get('caption', '')
-                content = caption if caption else "[Archivo multimedia recibido]"
+                content = caption if caption else ""
             elif not content:
                 content = "[Mensaje sin texto]"
             else:
@@ -519,6 +539,8 @@ class WhatsAppService:
                 direction=direction,
                 message_type=msg_type,
                 content=content,
+                media_url=media_url,
+                media_mime_type=media_mime,
                 status=MessageStatus.DELIVERED if direction == MessageDirection.INBOUND else MessageStatus.SENT,
             )
             processed_messages.append(msg_obj)

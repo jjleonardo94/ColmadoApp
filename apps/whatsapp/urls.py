@@ -13,5 +13,6 @@ urlpatterns = [
     path('waha/status/', views.WAHAStatusAjaxView.as_view(), name='whatsapp_waha_status'),
     path('api/live/', views.WhatsAppLiveUpdatesView.as_view(), name='whatsapp_live_updates'),
     path('mensaje/<int:pk>/eliminar/', views.WhatsAppDeleteMessageView.as_view(), name='whatsapp_delete_message'),
+    path('mensaje/<int:pk>/media/', views.WhatsAppMediaProxyView.as_view(), name='whatsapp_message_media'),
     path('conversacion/<int:pk>/eliminar/', views.WhatsAppDeleteConversationView.as_view(), name='whatsapp_delete_conversation'),
 ]
