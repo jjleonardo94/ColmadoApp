@@ -545,6 +545,10 @@ class WhatsAppService:
             )
             processed_messages.append(msg_obj)
 
+            # 5.1 Descargar y persistir archivo multimedia de inmediato si está disponible en WAHA
+            if media_url:
+                cls.download_and_persist_media(msg_obj, media_url, media_mime)
+
             # 6. Detección de intenciones si es entrante (Saldo, Abonos, etc.)
             if direction == MessageDirection.INBOUND:
                 cls.handle_customer_intent(contact, conversation, content)
@@ -614,6 +618,31 @@ class WhatsAppService:
                 text="Entendido, le estamos avisando al encargado para que le atienda de inmediato. ¡Un momento por favor!",
                 conversation=conversation,
             )
+
+    @classmethod
+    def download_and_persist_media(cls, msg_obj: WhatsAppMessage, media_url: str, media_mime: str = ''):
+        """
+        Descarga el archivo multimedia de WAHA en el mismo instante en que se recibe
+        y lo guarda en disco permanente (MEDIA_ROOT/whatsapp/) para que no expire.
+        """
+        if not media_url:
+            return
+        try:
+            headers = WAHAService.get_headers() if ('localhost:3000' in media_url or 'api/files' in media_url) else {}
+            resp = requests.get(media_url, headers=headers, timeout=8)
+            if resp.status_code == 200 and resp.content:
+                from django.core.files.base import ContentFile
+                content_type = resp.headers.get('content-type') or media_mime or ''
+                ext = '.jpg'
+                if 'image' in content_type: ext = '.jpg'
+                elif 'audio' in content_type or 'ogg' in content_type: ext = '.ogg'
+                elif 'video' in content_type: ext = '.mp4'
+                elif 'pdf' in content_type: ext = '.pdf'
+                filename = f"wa_{msg_obj.id}_{int(time.time())}{ext}"
+                msg_obj.media_file.save(filename, ContentFile(resp.content), save=True)
+                logger.info("Multimedia guardado exitosamente para mensaje %s en %s", msg_obj.id, msg_obj.media_file.name)
+        except Exception as e:
+            logger.warning("No se pudo descargar media de %s: %s", media_url, e)
 
     @classmethod
     def parse_operator_credit_command(cls, text: str) -> dict | None:

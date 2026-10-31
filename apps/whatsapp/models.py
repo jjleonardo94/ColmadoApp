@@ -96,7 +96,7 @@ class WhatsAppMessage(models.Model):
 
     @property
     def has_media(self):
-        return bool(self.media_file or self.media_url or self.message_type in ['image', 'audio', 'video', 'document', 'media'])
+        return bool((self.media_file or self.media_url) and self.media_display_url)
 
     @property
     def is_image(self):
@@ -116,9 +116,7 @@ class WhatsAppMessage(models.Model):
 
     @property
     def media_display_url(self):
-        if self.media_file:
-            return self.media_file.url
-        if self.media_url:
+        if self.media_file or self.media_url:
             return f"/whatsapp/mensaje/{self.id}/media/"
         return ""
 
