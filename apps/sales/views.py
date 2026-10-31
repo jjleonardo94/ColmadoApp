@@ -114,6 +114,8 @@ class CreateSaleAPIView(LoginRequiredMixin, View):
         received_currency = data.get('currency', 'DOP')
         amount_received = Decimal(str(data.get('amount_received', '0.00')))
         notes = data.get('notes', '')
+        send_whatsapp = bool(data.get('send_whatsapp', False))
+        whatsapp_phone = data.get('whatsapp_phone') or None
 
         try:
             active_branch_id = request.session.get('active_branch_id')
@@ -127,18 +129,49 @@ class CreateSaleAPIView(LoginRequiredMixin, View):
                 notes=notes,
                 branch_id=active_branch_id,
             )
+
+            # Envío automático de recibo por WhatsApp si fue solicitado
+            whatsapp_result = None
+            if send_whatsapp:
+                whatsapp_result = SaleService.send_sale_whatsapp_receipt(
+                    sale=sale,
+                    phone_number=whatsapp_phone,
+                    user=request.user
+                )
+
             return JsonResponse({
                 'success': True,
                 'ticket_number': sale.ticket_number,
                 'total': str(sale.total),
                 'change': str(sale.change_given),
                 'receipt_url': f"/pos/recibo/{sale.ticket_number}/",
+                'whatsapp_sent': whatsapp_result.get('success', False) if whatsapp_result else False,
+                'whatsapp_message': whatsapp_result.get('message', '') if whatsapp_result else '',
             })
         except ValidationError as ex:
             msg = ex.message if hasattr(ex, 'message') else str(ex)
             return JsonResponse({'success': False, 'error': msg}, status=400)
         except Exception as ex:
             return JsonResponse({'success': False, 'error': f"Error interno: {str(ex)}"}, status=500)
+
+
+class SendSaleWhatsAppAPIView(LoginRequiredMixin, View):
+    def post(self, request, ticket_number):
+        sale = get_object_or_404(Sale, ticket_number=ticket_number)
+        phone = None
+        if request.body:
+            try:
+                body = json.loads(request.body)
+                phone = body.get('phone')
+            except Exception:
+                pass
+        
+        result = SaleService.send_sale_whatsapp_receipt(
+            sale=sale,
+            phone_number=phone,
+            user=request.user
+        )
+        return JsonResponse(result, status=200 if result.get('success') else 400)
 
 
 class SaleListView(LoginRequiredMixin, ListView):

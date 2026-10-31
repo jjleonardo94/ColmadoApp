@@ -80,6 +80,8 @@ class ColmadoBranch(models.Model):
     manager_name = models.CharField('Encargado / Administrador', max_length=120, blank=True)
     is_main = models.BooleanField('Sucursal Principal', default=False)
     is_active = models.BooleanField('Activo', default=True)
+    slogan = models.CharField('Eslogan / Encabezado', max_length=200, blank=True, default='')
+    receipt_footer = models.TextField('Pie de Recibo', blank=True, default='')
     created_at = models.DateTimeField('Fecha de Creación', auto_now_add=True)
 
     class Meta:

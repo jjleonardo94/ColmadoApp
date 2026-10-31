@@ -147,8 +147,8 @@
                     <select id="customerSelect" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:border-orange-500">
                         <option value="">Consumidor Final (Venta Ocasional)</option>
                         {% for c in customers %}
-                        <option value="{{ c.id }}" data-balance="{{ c.current_balance|stringformat:'.2f' }}" data-limit="{{ c.credit_limit|stringformat:'.2f' }}" data-avail="{{ c.available_credit|stringformat:'.2f' }}">
-                            {{ c.name }} - Saldo: RD$ {{ c.current_balance|floatformat:2 }} (Disp: RD$ {{ c.available_credit|floatformat:2 }})
+                        <option value="{{ c.id }}" data-name="{{ c.name }}" data-phone="{{ c.phone|default:'' }}" data-balance="{{ c.current_balance|stringformat:'.2f' }}" data-limit="{{ c.credit_limit|stringformat:'.2f' }}" data-avail="{{ c.available_credit|stringformat:'.2f' }}">
+                            {{ c.name }} {% if c.phone %}({{ c.phone }}){% endif %} - Saldo: RD$ {{ c.current_balance|floatformat:2 }} (Disp: RD$ {{ c.available_credit|floatformat:2 }})
                         </option>
                         {% endfor %}
                     </select>
@@ -400,6 +400,25 @@
             <div class="flex justify-between text-xs font-bold pt-2 border-t">
                 <span>Total asignado: <span id="splitAssigned" class="text-slate-900">RD$ 0.00</span></span>
                 <span>Restante: <span id="splitRemaining" class="text-rose-600">RD$ 0.00</span></span>
+            </div>
+        </div>
+
+        <!-- Opción: Enviar Comprobante por WhatsApp -->
+        <div class="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-2">
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-emerald-900">
+                <input type="checkbox" id="sendWhatsAppReceiptCheckbox" onchange="toggleWhatsAppReceiptInput()" class="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500">
+                <span class="flex items-center gap-1.5">
+                    <i data-lucide="message-square" class="w-4 h-4 text-emerald-600"></i>
+                    <span>Enviar comprobante con detalle de compra por WhatsApp</span>
+                </span>
+            </label>
+            <div id="whatsappPhoneContainer" class="hidden space-y-1 pt-1">
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-semibold text-emerald-800 shrink-0">Teléfono WhatsApp:</span>
+                    <input type="text" id="whatsappCustomerPhone" placeholder="Ej. 8295551234 o 18095551234"
+                           class="w-full px-2.5 py-1 text-xs bg-white border border-emerald-300 rounded-lg text-slate-800 font-bold focus:outline-none focus:border-emerald-500">
+                </div>
+                <p class="text-[10px] text-emerald-600">Se enviará el detalle de productos, cantidades, precios unitarios y total.</p>
             </div>
         </div>
 
@@ -833,12 +852,42 @@
     }
 
     // --- MODAL: PAGO Y COBRO ---
+    function toggleWhatsAppReceiptInput() {
+        const chk = document.getElementById('sendWhatsAppReceiptCheckbox');
+        const cont = document.getElementById('whatsappPhoneContainer');
+        if (chk && chk.checked) {
+            cont?.classList.remove('hidden');
+            document.getElementById('whatsappCustomerPhone')?.focus();
+        } else {
+            cont?.classList.add('hidden');
+        }
+    }
+
     function openPaymentModal() {
         if (cart.length === 0) return;
         const total = getCartTotal();
         document.getElementById('modalTotalDOP').innerText = 'RD$ ' + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
         document.getElementById('paymentModal').classList.remove('hidden');
         selectPaymentTab(currentPayTab);
+
+        // Preconfigurar WhatsApp si hay cliente seleccionado con teléfono
+        const custSelect = document.getElementById('customerSelect');
+        const selectedOpt = custSelect?.options[custSelect.selectedIndex];
+        const phone = selectedOpt?.dataset?.phone || '';
+        const chk = document.getElementById('sendWhatsAppReceiptCheckbox');
+        const phoneInput = document.getElementById('whatsappCustomerPhone');
+        const cont = document.getElementById('whatsappPhoneContainer');
+
+        if (phone && chk) {
+            chk.checked = true;
+            if (phoneInput) phoneInput.value = phone;
+            cont?.classList.remove('hidden');
+        } else if (chk) {
+            chk.checked = false;
+            if (phoneInput) phoneInput.value = '';
+            cont?.classList.add('hidden');
+        }
+        lucide.createIcons();
     }
 
     function closePaymentModal() {
@@ -1082,6 +1131,8 @@
                 currency: currentPayTab === 'EFECTIVO' ? (document.getElementById('cashCurrencySelect')?.value || 'DOP') : 'DOP',
                 amount_received: total,
                 notes: '',
+                send_whatsapp: document.getElementById('sendWhatsAppReceiptCheckbox')?.checked || false,
+                whatsapp_phone: (document.getElementById('whatsappCustomerPhone')?.value || '').trim(),
             })
         })
         .then(res => res.json())

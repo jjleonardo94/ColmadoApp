@@ -33,9 +33,21 @@
     <div class="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-white shrink-0 {% if selected_conv %}hidden md:flex{% endif %}">
       <!-- Buscador y Filtro -->
       <div class="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
-        <form method="get" class="relative">
-          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-          <input type="text" name="q" value="{{ search_query }}" placeholder="Buscar cliente o teléfono..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-orange-500">
+        <form id="contactSearchForm" method="get" class="relative flex items-center">
+          {% if status_filter %}
+          <input type="hidden" name="estado" value="{{ status_filter }}">
+          {% endif %}
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none"></i>
+          <input type="text" id="contactSearchInput" name="q" value="{{ search_query }}" 
+                 placeholder="Buscar cliente o teléfono..." 
+                 autocomplete="off"
+                 class="w-full pl-9 pr-8 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-orange-500 transition">
+          <button type="button" id="clearContactSearchBtn" 
+                  onclick="clearContactSearch()" 
+                  title="Borrar búsqueda"
+                  class="absolute right-2.5 top-2 text-slate-400 hover:text-rose-600 transition p-0.5 rounded-full hover:bg-slate-100 {% if not search_query %}hidden{% endif %}">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
         </form>
 
         <div class="flex items-center justify-between text-xs text-slate-500 px-1 font-medium">
@@ -1375,4 +1387,55 @@
   setInterval(pollWhatsAppLive, 2500);
 </script>
 {% endif %}
+
+<script>
+  function clearContactSearch() {
+    const input = document.getElementById('contactSearchInput');
+    const clearBtn = document.getElementById('clearContactSearchBtn');
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.classList.add('hidden');
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('q')) {
+      url.searchParams.delete('q');
+      window.location.href = url.pathname + (url.search ? url.search : '');
+      return;
+    }
+
+    filterChatsLocally('');
+  }
+
+  function filterChatsLocally(query) {
+    const chatItems = document.querySelectorAll('#conversationsListContainer > a');
+    let visibleCount = 0;
+    chatItems.forEach(item => {
+      const text = item.textContent.toLowerCase();
+      if (!query || text.includes(query)) {
+        item.style.display = '';
+        visibleCount++;
+      } else {
+        item.style.display = 'none';
+      }
+    });
+    const counter = document.getElementById('activeChatsCounter');
+    if (counter) counter.innerText = visibleCount + ' chats';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('contactSearchInput');
+    const clearBtn = document.getElementById('clearContactSearchBtn');
+    if (input && clearBtn) {
+      input.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        if (val.length > 0) {
+          clearBtn.classList.remove('hidden');
+        } else {
+          clearBtn.classList.add('hidden');
+        }
+        filterChatsLocally(val.toLowerCase());
+      });
+    }
+  });
+</script>
+
 {% endblock %}

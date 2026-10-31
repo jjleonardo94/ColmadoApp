@@ -342,6 +342,101 @@ class SaleService:
         return sale
 
     @classmethod
+    def send_sale_whatsapp_receipt(cls, sale: Sale, phone_number: str = None, user=None) -> dict:
+        """
+        Envía un comprobante digital detallado de la venta por WhatsApp al cliente o al número indicado.
+        Incluye desglose completo de productos, cantidades, precios unitarios, subtotal y total.
+        """
+        target_phone = phone_number or (sale.customer.phone if sale.customer else None)
+        if not target_phone or not str(target_phone).strip():
+            return {
+                'success': False,
+                'error': 'No se especificó un número de WhatsApp para enviar el comprobante.'
+            }
+
+        try:
+            from apps.whatsapp.services import WhatsAppService
+            settings = BusinessSettings.get_settings()
+            branch = sale.branch
+            colmado_name = branch.name if branch else settings.name
+            now_str = timezone.localtime(sale.created_at).strftime('%d/%m/%Y %I:%M %p')
+
+            # Construir desglose detallado de los artículos comprados
+            items_lines = []
+            for it in sale.items.select_related('product').all():
+                qty_str = f"{it.quantity:g}"
+                prod_name = it.product.name
+                line_sub = f"RD$ {it.subtotal:,.2f}"
+                unit_label = it.product.get_unit_of_measure_display() if hasattr(it.product, 'get_unit_of_measure_display') else ''
+                unit_tag = f" {unit_label}" if it.product.allows_decimals and unit_label else ""
+                if it.discount > Decimal('0.00'):
+                    items_lines.append(f"• {qty_str}{unit_tag} x {prod_name} — {line_sub} (Desc. RD$ {it.discount:,.2f})")
+                else:
+                    items_lines.append(f"• {qty_str}{unit_tag} x {prod_name} — {line_sub}")
+
+            items_text = "\n".join(items_lines) if items_lines else "• Artículos del colmado"
+
+            cliente_nombre = sale.customer.name if sale.customer else "Cliente"
+            cajero_nombre = sale.cashier.get_full_name() or sale.cashier.username if sale.cashier else "Caja"
+
+            slogan_text = f"\n_{branch.slogan or settings.slogan}_\n" if (branch and branch.slogan) or settings.slogan else ""
+            footer_msg = branch.receipt_footer or settings.receipt_footer or "¡Gracias por preferirnos!"
+
+            msg = (
+                f"🧾 *{colmado_name.upper()}*\n"
+                f"{slogan_text}"
+                f"*Comprobante de Compra* — #{sale.ticket_number}\n"
+                f"*Fecha:* {now_str}\n"
+                f"*Cliente:* {cliente_nombre}\n"
+                f"*Cajero:* {cajero_nombre}\n\n"
+                f"🛒 *DETALLE DE LO TOMADO:*\n"
+                f"{items_text}\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"*Subtotal:* RD$ {sale.subtotal:,.2f}\n"
+            )
+
+            if sale.discount > Decimal('0.00'):
+                msg += f"*Descuento:* -RD$ {sale.discount:,.2f}\n"
+
+            msg += (
+                f"*TOTAL A PAGAR:* RD$ {sale.total:,.2f}\n"
+                f"*Forma de Pago:* {sale.get_payment_method_display()}\n"
+            )
+
+            if sale.change_given > Decimal('0.00'):
+                msg += f"*Devuelta / Cambio:* RD$ {sale.change_given:,.2f}\n"
+
+            if sale.customer and sale.customer.current_balance > Decimal('0.00'):
+                msg += f"\n📌 *Balance Total en Libreta:* RD$ {sale.customer.current_balance:,.2f}\n"
+
+            msg += f"\n{footer_msg}"
+
+            msg_record = WhatsAppService.send_text_message(
+                phone_number=target_phone,
+                text=msg,
+                user=user
+            )
+
+            AuditLog.objects.create(
+                user=user,
+                action='ENVIAR_RECIBO_WHATSAPP',
+                target_model='Sale',
+                target_id=sale.ticket_number,
+                details=f"Comprobante enviado por WhatsApp al {target_phone}."
+            )
+
+            return {
+                'success': True,
+                'phone': target_phone,
+                'message': f"Comprobante enviado por WhatsApp al {target_phone} exitosamente."
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f"Error al enviar mensaje por WhatsApp: {str(e)}"
+            }
+
+    @classmethod
     @transaction.atomic
     def void_sale(cls, sale_id: int, user, void_reason: str) -> Sale:
         """

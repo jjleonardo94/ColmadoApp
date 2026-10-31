@@ -142,28 +142,89 @@ class BusinessSettingsView(LoginRequiredMixin, View):
         if not (request.user.is_superuser or request.user.profile.check_permission('can_manage_settings') or request.user.profile.check_permission('can_manage_cash_settings')):
             messages.error(request, "No tiene permisos para modificar las configuraciones del sistema o de caja.")
             return redirect('dashboard')
+        
+        # 1. Obtener sucursal activa seleccionada
+        active_branch_id = request.session.get('active_branch_id')
+        branch = None
+        if active_branch_id:
+            branch = ColmadoBranch.objects.filter(id=active_branch_id, is_active=True).first()
+        if not branch:
+            branch = ColmadoBranch.get_default_branch()
+
         settings_obj = BusinessSettings.get_settings()
+
+        # Enlazar datos comerciales de la sucursal activa para que el formulario los refleje exactamente
+        if branch:
+            settings_obj.name = branch.name
+            settings_obj.rnc = branch.rnc or ''
+            settings_obj.phone = branch.phone or ''
+            settings_obj.address = branch.address or ''
+            settings_obj.slogan = branch.slogan or ''
+            settings_obj.receipt_footer = branch.receipt_footer or ''
+
         form = BusinessSettingsForm(instance=settings_obj)
-        return render(request, 'core/settings.html', {'form': form, 'settings': settings_obj})
+        branches = ColmadoBranch.objects.filter(is_active=True).order_by('-is_main', 'name')
+        return render(request, 'core/settings.html', {
+            'form': form,
+            'settings': settings_obj,
+            'active_branch': branch,
+            'all_branches': branches,
+        })
 
     def post(self, request):
         if not (request.user.is_superuser or request.user.profile.check_permission('can_manage_settings') or request.user.profile.check_permission('can_manage_cash_settings')):
             messages.error(request, "No tiene permisos para modificar las configuraciones del sistema o de caja.")
             return redirect('dashboard')
+
+        active_branch_id = request.session.get('active_branch_id')
+        branch = None
+        if active_branch_id:
+            branch = ColmadoBranch.objects.filter(id=active_branch_id, is_active=True).first()
+        if not branch:
+            branch = ColmadoBranch.get_default_branch()
+
         settings_obj = BusinessSettings.get_settings()
         form = BusinessSettingsForm(request.POST, instance=settings_obj)
         if form.is_valid():
-            form.save()
+            saved_settings = form.save(commit=False)
+
+            # Actualizar datos de identidad propios del colmado activo
+            branch.name = form.cleaned_data['name']
+            branch.rnc = form.cleaned_data['rnc']
+            branch.phone = form.cleaned_data['phone']
+            branch.address = form.cleaned_data['address']
+            branch.slogan = form.cleaned_data['slogan']
+            branch.receipt_footer = form.cleaned_data['receipt_footer']
+            branch.save()
+
+            # Si es la sucursal principal, mantener sincronizado BusinessSettings
+            if branch.is_main:
+                saved_settings.name = branch.name
+                saved_settings.rnc = branch.rnc
+                saved_settings.phone = branch.phone
+                saved_settings.address = branch.address
+                saved_settings.slogan = branch.slogan
+                saved_settings.receipt_footer = branch.receipt_footer
+
+            saved_settings.save()
+
             AuditLog.objects.create(
                 user=request.user,
                 action='ACTUALIZAR_CONFIGURACION',
-                target_model='BusinessSettings',
-                target_id='1',
-                details="Configuraciones del colmado y parámetros de caja actualizados exitosamente."
+                target_model='ColmadoBranch',
+                target_id=str(branch.id),
+                details=f"Configuraciones de la sucursal '{branch.name}' y parámetros globales actualizados exitosamente."
             )
-            messages.success(request, "Configuraciones del colmado actualizadas exitosamente.")
+            messages.success(request, f"Configuración de '{branch.name}' actualizada exitosamente.")
             return redirect('business_settings')
-        return render(request, 'core/settings.html', {'form': form, 'settings': settings_obj})
+
+        branches = ColmadoBranch.objects.filter(is_active=True).order_by('-is_main', 'name')
+        return render(request, 'core/settings.html', {
+            'form': form,
+            'settings': settings_obj,
+            'active_branch': branch,
+            'all_branches': branches,
+        })
 
 
 class AuditLogListView(LoginRequiredMixin, ListView):
@@ -225,7 +286,7 @@ class SwitchBranchView(LoginRequiredMixin, View):
             return redirect('dashboard')
         request.session['active_branch_id'] = branch.id
         messages.success(request, f"Colmado activo: {branch.name}")
-        next_url = request.META.get('HTTP_REFERER')
+        next_url = request.GET.get('next') or request.META.get('HTTP_REFERER')
         if not next_url or 'cambiar' in next_url:
             next_url = reverse_lazy('dashboard')
         return redirect(next_url)
