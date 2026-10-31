@@ -1176,8 +1176,8 @@
                         </div>
                     </div>
 
-                    <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs font-bold text-emerald-800">
-                        <span>Devuelta / Cambio a Entregar:</span>
+                    <div id="cashChangeContainer" class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs font-bold text-emerald-800 transition-colors">
+                        <span id="cashChangeLabel">Devuelta / Cambio a Entregar:</span>
                         <span id="cashChangeDisplay" class="text-lg font-black text-emerald-700">RD$ 0.00</span>
                     </div>
                 </div>
@@ -1243,9 +1243,37 @@
 
         const change = recInDop - total;
         const changeEl = document.getElementById('cashChangeDisplay');
-        if (changeEl) {
-            changeEl.innerText = change >= 0 ? ('RD$ ' + change.toFixed(2)) : 'RD$ 0.00 (Faltante)';
-            changeEl.className = change >= 0 ? "text-lg font-black text-emerald-700" : "text-lg font-black text-rose-600";
+        const labelEl = document.getElementById('cashChangeLabel');
+        const containerEl = document.getElementById('cashChangeContainer');
+
+        if (change < 0) {
+            const missing = Math.abs(change);
+            if (labelEl) labelEl.innerText = "Faltante por Pagar:";
+            if (changeEl) {
+                changeEl.innerText = "- RD$ " + missing.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                changeEl.className = "text-lg font-black text-rose-600";
+            }
+            if (containerEl) {
+                containerEl.className = "p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs font-bold text-rose-800 transition-colors";
+            }
+        } else if (change === 0) {
+            if (labelEl) labelEl.innerText = "Devuelta / Cambio:";
+            if (changeEl) {
+                changeEl.innerText = "RD$ 0.00 (Monto Exacto)";
+                changeEl.className = "text-lg font-black text-emerald-700";
+            }
+            if (containerEl) {
+                containerEl.className = "p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs font-bold text-emerald-800 transition-colors";
+            }
+        } else {
+            if (labelEl) labelEl.innerText = "Devuelta / Cambio a Entregar:";
+            if (changeEl) {
+                changeEl.innerText = "RD$ " + change.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                changeEl.className = "text-lg font-black text-emerald-700";
+            }
+            if (containerEl) {
+                containerEl.className = "p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs font-bold text-emerald-800 transition-colors";
+            }
         }
     }
 
@@ -1331,6 +1359,12 @@
                 let amtDOP = rawRec;
                 if (curr === 'USD') amtDOP = rawRec * USD_RATE;
                 if (curr === 'EUR') amtDOP = rawRec * EUR_RATE;
+                if (amtDOP < total) {
+                    const missing = total - amtDOP;
+                    showToast(`Monto insuficiente. Faltan RD$ ${missing.toFixed(2)} para completar el pago.`, 'warning');
+                    document.getElementById('cashReceivedInput')?.focus();
+                    return;
+                }
                 paymentsPayload = [{ method: 'EFECTIVO', amount: Math.min(amtDOP, total), currency: curr, raw_received: rawRec }];
             } else if (currentPayTab === 'TARJETA') {
                 const ref = document.getElementById('cardRefInput')?.value || '';
