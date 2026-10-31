@@ -87,6 +87,24 @@
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
         }
+        /* Ajuste pro para badge en sidebar colapsado */
+        .sidebar-collapsed #sidebarWhatsAppBadge {
+            display: none !important;
+        }
+        .sidebar-collapsed #sidebarWhatsAppBadgeCollapsed.has-unread {
+            display: inline-flex !important;
+        }
+        body:not(.sidebar-collapsed) #sidebarWhatsAppBadgeCollapsed {
+            display: none !important;
+        }
+        .badge-centered {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1 !important;
+            font-variant-numeric: tabular-nums;
+        }
         @media print {
             /* 1. Ocultar todos los elementos de navegación e interactivos */
             .no-print,
@@ -256,10 +274,13 @@
                 {% if user.is_superuser or user.profile.perms.can_manage_whatsapp %}
                 <div class="sidebar-heading pt-3 pb-1 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Comunicaciones & Delivery</div>
 
-                <a href="{% url 'whatsapp_inbox' %}" title="WhatsApp Business" class="sidebar-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors {% if 'whatsapp' in request.path %}bg-emerald-50 text-emerald-800 font-semibold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                    <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                <a href="{% url 'whatsapp_inbox' %}" title="WhatsApp Business" class="sidebar-link relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors {% if 'whatsapp' in request.path %}bg-emerald-50 text-emerald-800 font-semibold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                    <div class="relative flex items-center justify-center shrink-0">
+                        <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600"></i>
+                        <span id="sidebarWhatsAppBadgeCollapsed" class="hidden absolute -top-2 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-emerald-600 text-white font-black text-[9px] badge-centered ring-2 ring-white shadow-xs">0</span>
+                    </div>
                     <span class="sidebar-text">WhatsApp Business</span>
-                    <span id="sidebarWhatsAppBadge" class="hidden ml-auto px-1.5 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[10px] min-w-[18px] text-center shadow-xs">0</span>
+                    <span id="sidebarWhatsAppBadge" class="hidden ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-600 text-white font-black text-[10px] badge-centered shadow-xs">0</span>
                 </a>
 
                 <a href="{% url 'delivery_person_list' %}" title="Repartidores / Delivery" class="sidebar-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors {% if 'delivery' in request.path %}bg-orange-50 text-orange-700{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
@@ -381,18 +402,27 @@
 
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- WhatsApp Quick Button with Unread Badge -->
+                {% if user.is_superuser or user.profile.perms.can_manage_whatsapp %}
+                <a href="{% url 'whatsapp_inbox' %}" id="topbarWhatsAppBtn" title="WhatsApp Business & Pedidos" class="relative flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100/90 text-emerald-900 border border-emerald-200/90 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-sm">
+                    <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                    <span class="hidden md:inline font-bold">WhatsApp</span>
+                    <span id="topbarWhatsAppBadge" class="hidden min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-600 text-white font-black text-[10px] badge-centered shadow-xs">0</span>
+                </a>
+                {% endif %}
+
                 <!-- Delivery Express Button with Dynamic Counter Badge -->
-                <button type="button" onclick="openDeliveryExpressDrawer()" id="topbarDeliveryBtn" title="Delivery Express (Pedidos pendientes)" class="relative flex items-center gap-2.5 bg-amber-50 hover:bg-amber-100/90 text-amber-900 border border-amber-300/80 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-sm group">
-                    <div class="relative w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-500 shadow-xs flex items-center justify-center shrink-0 overflow-hidden ring-2 ring-amber-400/60 group-hover:scale-105 transition-transform">
+                <button type="button" onclick="openDeliveryExpressDrawer()" id="topbarDeliveryBtn" title="Delivery Express (Pedidos pendientes)" class="relative flex items-center gap-2 bg-amber-50 hover:bg-amber-100/90 text-amber-900 border border-amber-300/80 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-sm group">
+                    <div class="relative w-5 h-5 rounded-full bg-amber-500 shadow-xs flex items-center justify-center shrink-0 overflow-hidden ring-1 ring-amber-400 group-hover:scale-105 transition-transform">
                         <img src="{% static 'img/delivery_logo.png' %}?v=2" alt="Delivery Express" class="w-full h-full object-cover" />
                     </div>
-                    <span class="hidden sm:inline font-bold text-slate-800">Delivery Express</span>
-                    <span id="topbarDeliveryBadge" class="hidden px-1.5 py-0.5 rounded-full bg-amber-600 text-white font-extrabold text-[10px] min-w-[18px] text-center shadow-xs">0</span>
+                    <span class="hidden md:inline font-bold text-slate-800">Delivery Express</span>
+                    <span id="topbarDeliveryBadge" class="hidden min-w-[18px] h-[18px] px-1 rounded-full bg-amber-600 text-white font-black text-[10px] badge-centered shadow-xs">0</span>
                 </button>
 
                 <!-- Quick POS button -->
-                <a href="{% url 'pos' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition-all hover:shadow">
+                <a href="{% url 'pos' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition-all hover:shadow">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i>
                     <span>Nueva Venta</span>
                 </a>
@@ -1249,15 +1279,23 @@
             fetch('/whatsapp/api/live/')
                 .then(r => r.json())
                 .then(data => {
-                    const badge = document.getElementById('sidebarWhatsAppBadge');
-                    if (badge) {
-                        if (data.total_unread > 0) {
-                            badge.innerText = data.total_unread;
-                            badge.classList.remove('hidden');
-                        } else {
-                            badge.classList.add('hidden');
+                    const count = data.total_unread || 0;
+                    const bExpanded = document.getElementById('sidebarWhatsAppBadge');
+                    const bCollapsed = document.getElementById('sidebarWhatsAppBadgeCollapsed');
+                    const bTopbar = document.getElementById('topbarWhatsAppBadge');
+
+                    [bExpanded, bCollapsed, bTopbar].forEach(b => {
+                        if (b) {
+                            if (count > 0) {
+                                b.innerText = count > 99 ? '99+' : count;
+                                b.classList.remove('hidden');
+                                b.classList.add('has-unread');
+                            } else {
+                                b.classList.add('hidden');
+                                b.classList.remove('has-unread');
+                            }
                         }
-                    }
+                    });
                 })
                 .catch(() => {});
         }

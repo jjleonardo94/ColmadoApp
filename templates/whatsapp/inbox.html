@@ -89,7 +89,7 @@
               </span>
               <div class="conv-unread-box">
                 {% if conv.unread_count > 0 %}
-                  <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold mt-1">
+                  <span class="min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold inline-flex items-center justify-center leading-none shadow-xs">
                     {{ conv.unread_count }}
                   </span>
                 {% endif %}
@@ -1281,7 +1281,7 @@
           : '<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 shrink-0">Nuevo</span>';
 
         const unreadBadge = (c.unread_count > 0 && String(c.id) !== String(activeChatId))
-          ? `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold mt-1">${c.unread_count}</span>`
+          ? `<span class="min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold inline-flex items-center justify-center leading-none shadow-xs">${c.unread_count}</span>`
           : '';
 
         convLink.innerHTML = `
@@ -1315,7 +1315,7 @@
         const badgeBox = convLink.querySelector('.conv-unread-box');
         if (badgeBox) {
           if (c.unread_count > 0 && String(c.id) !== String(activeChatId)) {
-            badgeBox.innerHTML = `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold mt-1">${c.unread_count}</span>`;
+            badgeBox.innerHTML = `<span class="min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold inline-flex items-center justify-center leading-none shadow-xs">${c.unread_count}</span>`;
           } else {
             badgeBox.innerHTML = '';
           }
