@@ -110,9 +110,13 @@ class ReceiptImageGenerator:
         for p in payments:
             y += 18
             y += 18
+            if sale.currency_received != 'DOP' and p.payment_method == 'EFECTIVO':
+                y += 18
         if not payments:
             y += 18
             y += 18
+            if sale.currency_received != 'DOP' and sale.payment_method == 'EFECTIVO':
+                y += 18
 
         y += 20 # CAMBIO
         y += 15 # Separator
@@ -220,17 +224,43 @@ class ReceiptImageGenerator:
                 draw.text((margin_r, cur_y), p.get_payment_method_display(), fill='#0F172A', font=f_body_bold, anchor='ra')
                 cur_y += 18
 
-                draw.text((margin_l, cur_y), "MONTO ABONADO:", fill='#334155', font=f_body)
-                draw.text((margin_r, cur_y), f"RD$ {p.amount:,.2f}", fill='#0F172A', font=f_body, anchor='ra')
+                if p.payment_method == 'EFECTIVO' and sale.amount_received > Decimal('0.00'):
+                    label_m = "EFECTIVO RECIBIDO:" if sale.amount_received > p.amount else "MONTO ABONADO:"
+                    val_m = f"RD$ {sale.amount_received:,.2f}" if sale.currency_received == 'DOP' else f"{sale.currency_received} {sale.amount_received:,.2f}"
+                else:
+                    label_m = "MONTO ABONADO:"
+                    val_m = f"RD$ {p.amount:,.2f}"
+
+                draw.text((margin_l, cur_y), label_m, fill='#334155', font=f_body)
+                draw.text((margin_r, cur_y), val_m, fill='#0F172A', font=f_body_bold, anchor='ra')
                 cur_y += 18
+
+                if sale.currency_received != 'DOP' and p.payment_method == 'EFECTIVO':
+                    equiv_dop = sale.amount_received * sale.exchange_rate_used
+                    draw.text((margin_l, cur_y), f"EQUIV. RD$ (@ {sale.exchange_rate_used:,.2f}):", fill='#64748B', font=f_small)
+                    draw.text((margin_r, cur_y), f"RD$ {equiv_dop:,.2f}", fill='#64748B', font=f_small, anchor='ra')
+                    cur_y += 18
         else:
             draw.text((margin_l, cur_y), "FORMA DE PAGO:", fill='#334155', font=f_body)
             draw.text((margin_r, cur_y), sale.get_payment_method_display(), fill='#0F172A', font=f_body_bold, anchor='ra')
             cur_y += 18
 
-            draw.text((margin_l, cur_y), "MONTO ABONADO:", fill='#334155', font=f_body)
-            draw.text((margin_r, cur_y), f"RD$ {sale.total:,.2f}", fill='#0F172A', font=f_body, anchor='ra')
+            if sale.payment_method == 'EFECTIVO' and sale.amount_received > Decimal('0.00'):
+                label_m = "EFECTIVO RECIBIDO:" if sale.amount_received > sale.total else "MONTO ABONADO:"
+                val_m = f"RD$ {sale.amount_received:,.2f}" if sale.currency_received == 'DOP' else f"{sale.currency_received} {sale.amount_received:,.2f}"
+            else:
+                label_m = "MONTO ABONADO:"
+                val_m = f"RD$ {sale.total:,.2f}"
+
+            draw.text((margin_l, cur_y), label_m, fill='#334155', font=f_body)
+            draw.text((margin_r, cur_y), val_m, fill='#0F172A', font=f_body_bold, anchor='ra')
             cur_y += 18
+
+            if sale.currency_received != 'DOP' and sale.payment_method == 'EFECTIVO':
+                equiv_dop = sale.amount_received * sale.exchange_rate_used
+                draw.text((margin_l, cur_y), f"EQUIV. RD$ (@ {sale.exchange_rate_used:,.2f}):", fill='#64748B', font=f_small)
+                draw.text((margin_r, cur_y), f"RD$ {equiv_dop:,.2f}", fill='#64748B', font=f_small, anchor='ra')
+                cur_y += 18
 
         draw.text((margin_l, cur_y), "CAMBIO / DEVUELTA:", fill='#0F172A', font=f_body_bold)
         draw.text((margin_r, cur_y), f"RD$ {sale.change_given:,.2f}", fill='#0F172A', font=f_body_bold, anchor='ra')

@@ -157,8 +157,14 @@
                 <span class="font-bold">{{ payment.get_payment_method_display }}</span>
             </div>
             <div class="flex justify-between">
-                <span>MONTO ABONADO:</span>
-                <span>RD$ {{ payment.amount|floatformat:2 }}</span>
+                <span>{% if payment.payment_method == 'EFECTIVO' and sale.amount_received > payment.amount %}EFECTIVO RECIBIDO:{% else %}MONTO ABONADO:{% endif %}</span>
+                <span class="font-bold">
+                    {% if payment.payment_method == 'EFECTIVO' and sale.amount_received > payment.amount %}
+                        {% if sale.currency_received == 'DOP' %}RD$ {{ sale.amount_received|floatformat:2 }}{% else %}{{ sale.currency_received }} {{ sale.amount_received|floatformat:2 }}{% endif %}
+                    {% else %}
+                        RD$ {{ payment.amount|floatformat:2 }}
+                    {% endif %}
+                </span>
             </div>
             {% endfor %}
 

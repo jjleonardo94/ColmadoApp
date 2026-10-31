@@ -1458,6 +1458,18 @@
             }
         }
 
+        // Calcular monto recibido real y moneda para registro exacto de cambio / devuelta
+        let amountReceivedVal = total;
+        let receivedCurrency = 'DOP';
+        if (!splitEnabled && currentPayTab === 'EFECTIVO') {
+            const rawRec = parseFloat(document.getElementById('cashReceivedInput')?.value) || 0;
+            receivedCurrency = document.getElementById('cashCurrencySelect')?.value || 'DOP';
+            amountReceivedVal = rawRec > 0 ? rawRec : total;
+        } else if (splitEnabled) {
+            const splitCash = parseFloat(document.getElementById('split-EFECTIVO')?.value) || 0;
+            amountReceivedVal = splitCash > 0 ? splitCash : total;
+        }
+
         const btnConfirm = document.getElementById('btnConfirmSale');
         isSubmitting = true;
         btnConfirm.disabled = true;
@@ -1474,8 +1486,8 @@
                 items: itemsPayload,
                 payments: paymentsPayload,
                 customer_id: customerId,
-                currency: currentPayTab === 'EFECTIVO' ? (document.getElementById('cashCurrencySelect')?.value || 'DOP') : 'DOP',
-                amount_received: total,
+                currency: receivedCurrency,
+                amount_received: amountReceivedVal,
                 notes: '',
                 send_whatsapp: document.getElementById('sendWhatsAppReceiptCheckbox')?.checked || false,
                 whatsapp_phone: (document.getElementById('whatsappCustomerPhone')?.value || '').trim(),
