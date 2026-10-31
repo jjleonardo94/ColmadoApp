@@ -1,8 +1,12 @@
+import os
+import textwrap
+from PIL import Image, ImageDraw, ImageFont
 import uuid
 from decimal import Decimal
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.conf import settings
 
 from apps.catalog.models import Product, SaleType
 from apps.core.models import BusinessSettings, AuditLog
@@ -15,6 +19,237 @@ from apps.sales.models import (
     Sale, SaleItem, Payment, SaleStatus, PaymentMethodChoices,
     DeliveryPerson, DeliveryOrder, DeliveryStatus
 )
+
+
+class ReceiptImageGenerator:
+    """
+    Genera una imagen PNG nítida estilo ticket térmico (80mm) con la información
+    oficial del colmado activo, lista para enviarse por WhatsApp.
+    """
+    @staticmethod
+    def get_font(size, bold=False):
+        paths = []
+        if bold:
+            paths = [
+                'C:/Windows/Fonts/consolab.ttf',
+                'C:/Windows/Fonts/courbd.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf'
+            ]
+        else:
+            paths = [
+                'C:/Windows/Fonts/consola.ttf',
+                'C:/Windows/Fonts/cour.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf'
+            ]
+        for p in paths:
+            if os.path.exists(p):
+                try:
+                    return ImageFont.truetype(p, size)
+                except Exception:
+                    pass
+        return ImageFont.load_default()
+
+    @classmethod
+    def generate_receipt_image(cls, sale) -> str:
+        branch = sale.branch
+        b_settings = BusinessSettings.get_settings()
+        
+        colmado_name = (branch.name if branch else b_settings.name) or 'COLMADO'
+        rnc = (branch.rnc if branch else b_settings.rnc) or '1-31-00745-2'
+        phone = (branch.phone if branch else b_settings.phone) or ''
+        address = (branch.address if branch else b_settings.address) or ''
+        
+        now_str = timezone.localtime(sale.created_at).strftime('%d/%m/%Y %I:%M %p')
+        cajero = sale.cashier.get_full_name() or sale.cashier.username if sale.cashier else 'Cajero'
+        cliente = sale.customer.name if sale.customer else None
+
+        f_title = cls.get_font(20, bold=True)
+        f_header = cls.get_font(13, bold=False)
+        f_body = cls.get_font(13, bold=False)
+        f_body_bold = cls.get_font(13, bold=True)
+        f_small = cls.get_font(11, bold=False)
+        f_total = cls.get_font(17, bold=True)
+        f_sep = cls.get_font(12, bold=False)
+
+        width = 460
+        y = 25
+        y += 28 # Title
+        if rnc: y += 18
+        if phone: y += 18
+        if address:
+            addr_lines = textwrap.wrap(address, width=38)
+            y += len(addr_lines) * 16
+        y += 15
+        y += 18 # Separator
+        y += 18 # TICKET
+        y += 18 # FECHA
+        y += 18 # CAJERO
+        if cliente: y += 18 # CLIENTE
+        y += 15 # Separator
+        y += 20 # Header CANT. ARTICULO
+        y += 10 # Dotted line
+
+        items = list(sale.items.select_related('product').all())
+        for it in items:
+            y += 20
+            y += 16
+            if it.discount > Decimal('0.00'):
+                y += 16
+            y += 6
+
+        y += 15 # Separator
+        y += 18 # SUBTOTAL
+        if sale.discount > Decimal('0.00'):
+            y += 18
+        y += 28 # TOTAL A PAGAR
+        y += 15 # Separator
+
+        payments = list(sale.payments.all())
+        for p in payments:
+            y += 18
+            y += 18
+        if not payments:
+            y += 18
+            y += 18
+
+        y += 20 # CAMBIO
+        y += 15 # Separator
+        y += 24 # Gracias por comprar en...
+        y += 20 # *** GRACIAS POR PREFERIRNOS ***
+        y += 35 # Bottom padding
+
+        height = y
+
+        img = Image.new('RGB', (width, height), color='#FFFFFF')
+        draw = ImageDraw.Draw(img)
+        draw.rectangle([(2, 2), (width - 3, height - 3)], outline='#E2E8F0', width=1)
+
+        cur_y = 25
+        draw.text((width / 2, cur_y), colmado_name.upper(), fill='#0F172A', font=f_title, anchor='mm')
+        cur_y += 22
+
+        if rnc:
+            draw.text((width / 2, cur_y), f"RNC: {rnc}", fill='#334155', font=f_header, anchor='mm')
+            cur_y += 18
+
+        if phone:
+            draw.text((width / 2, cur_y), f"Tel: {phone}", fill='#334155', font=f_header, anchor='mm')
+            cur_y += 18
+
+        if address:
+            for line in textwrap.wrap(address, width=38):
+                draw.text((width / 2, cur_y), line, fill='#475569', font=f_small, anchor='mm')
+                cur_y += 15
+            cur_y += 4
+
+        sep_line = "- " * 27
+        draw.text((width / 2, cur_y), sep_line, fill='#94A3B8', font=f_sep, anchor='mm')
+        cur_y += 14
+
+        margin_l = 28
+        margin_r = width - 28
+
+        draw.text((margin_l, cur_y), "TICKET:", fill='#334155', font=f_body)
+        draw.text((margin_r, cur_y), sale.ticket_number, fill='#0F172A', font=f_body_bold, anchor='ra')
+        cur_y += 18
+
+        draw.text((margin_l, cur_y), "FECHA:", fill='#334155', font=f_body)
+        draw.text((margin_r, cur_y), now_str, fill='#0F172A', font=f_body, anchor='ra')
+        cur_y += 18
+
+        draw.text((margin_l, cur_y), "CAJERO:", fill='#334155', font=f_body)
+        draw.text((margin_r, cur_y), cajero, fill='#0F172A', font=f_body, anchor='ra')
+        cur_y += 18
+
+        if cliente:
+            draw.text((margin_l, cur_y), "CLIENTE:", fill='#334155', font=f_body_bold)
+            draw.text((margin_r, cur_y), cliente, fill='#0F172A', font=f_body_bold, anchor='ra')
+            cur_y += 18
+
+        draw.text((width / 2, cur_y), sep_line, fill='#94A3B8', font=f_sep, anchor='mm')
+        cur_y += 14
+
+        draw.text((margin_l, cur_y), "CANT. ARTICULO", fill='#0F172A', font=f_body_bold)
+        draw.text((margin_r, cur_y), "IMPORTE", fill='#0F172A', font=f_body_bold, anchor='ra')
+        cur_y += 18
+
+        draw.text((width / 2, cur_y), ". " * 27, fill='#CBD5E1', font=f_sep, anchor='mm')
+        cur_y += 10
+
+        for it in items:
+            p_name = it.product.name
+            if len(p_name) > 24:
+                p_name = p_name[:23] + '…'
+            draw.text((margin_l, cur_y), p_name, fill='#0F172A', font=f_body_bold)
+            draw.text((margin_r, cur_y), f"RD$ {it.subtotal:,.2f}", fill='#0F172A', font=f_body_bold, anchor='ra')
+            cur_y += 16
+
+            detail = f"{it.quantity:g} x RD$ {it.unit_price:,.2f}"
+            draw.text((margin_l + 8, cur_y), detail, fill='#64748B', font=f_small)
+            cur_y += 16
+
+            if it.discount > Decimal('0.00'):
+                draw.text((margin_r, cur_y - 16), f"-Desc: RD$ {it.discount:,.2f}", fill='#E11D48', font=f_small, anchor='ra')
+
+            cur_y += 4
+
+        draw.text((width / 2, cur_y), sep_line, fill='#94A3B8', font=f_sep, anchor='mm')
+        cur_y += 14
+
+        draw.text((margin_l, cur_y), "SUBTOTAL:", fill='#334155', font=f_body)
+        draw.text((margin_r, cur_y), f"RD$ {sale.subtotal:,.2f}", fill='#0F172A', font=f_body, anchor='ra')
+        cur_y += 18
+
+        if sale.discount > Decimal('0.00'):
+            draw.text((margin_l, cur_y), "DESCUENTO:", fill='#E11D48', font=f_body)
+            draw.text((margin_r, cur_y), f"-RD$ {sale.discount:,.2f}", fill='#E11D48', font=f_body, anchor='ra')
+            cur_y += 18
+
+        draw.text((margin_l, cur_y), "TOTAL A PAGAR:", fill='#0F172A', font=f_total)
+        draw.text((margin_r, cur_y), f"RD$ {sale.total:,.2f}", fill='#0F172A', font=f_total, anchor='ra')
+        cur_y += 24
+
+        draw.text((width / 2, cur_y), sep_line, fill='#94A3B8', font=f_sep, anchor='mm')
+        cur_y += 14
+
+        if payments:
+            for p in payments:
+                draw.text((margin_l, cur_y), "FORMA DE PAGO:", fill='#334155', font=f_body)
+                draw.text((margin_r, cur_y), p.get_payment_method_display(), fill='#0F172A', font=f_body_bold, anchor='ra')
+                cur_y += 18
+
+                draw.text((margin_l, cur_y), "MONTO ABONADO:", fill='#334155', font=f_body)
+                draw.text((margin_r, cur_y), f"RD$ {p.amount:,.2f}", fill='#0F172A', font=f_body, anchor='ra')
+                cur_y += 18
+        else:
+            draw.text((margin_l, cur_y), "FORMA DE PAGO:", fill='#334155', font=f_body)
+            draw.text((margin_r, cur_y), sale.get_payment_method_display(), fill='#0F172A', font=f_body_bold, anchor='ra')
+            cur_y += 18
+
+            draw.text((margin_l, cur_y), "MONTO ABONADO:", fill='#334155', font=f_body)
+            draw.text((margin_r, cur_y), f"RD$ {sale.total:,.2f}", fill='#0F172A', font=f_body, anchor='ra')
+            cur_y += 18
+
+        draw.text((margin_l, cur_y), "CAMBIO / DEVUELTA:", fill='#0F172A', font=f_body_bold)
+        draw.text((margin_r, cur_y), f"RD$ {sale.change_given:,.2f}", fill='#0F172A', font=f_body_bold, anchor='ra')
+        cur_y += 20
+
+        draw.text((width / 2, cur_y), sep_line, fill='#94A3B8', font=f_sep, anchor='mm')
+        cur_y += 16
+
+        draw.text((width / 2, cur_y), f"Gracias por comprar en {colmado_name}", fill='#334155', font=f_body, anchor='mm')
+        cur_y += 18
+        draw.text((width / 2, cur_y), "*** GRACIAS POR PREFERIRNOS ***", fill='#64748B', font=f_small, anchor='mm')
+
+        media_dir = os.path.join(settings.MEDIA_ROOT, 'receipts')
+        os.makedirs(media_dir, exist_ok=True)
+        filename = f"{sale.ticket_number}.png"
+        filepath = os.path.join(media_dir, filename)
+        img.save(filepath, 'PNG')
+        return f"receipts/{filename}"
+
 
 class SaleService:
     @staticmethod
@@ -342,10 +577,10 @@ class SaleService:
         return sale
 
     @classmethod
-    def send_sale_whatsapp_receipt(cls, sale: Sale, phone_number: str = None, user=None) -> dict:
+    def send_sale_whatsapp_receipt(cls, sale: Sale, phone_number: str = None, user=None, request=None) -> dict:
         """
-        Envía un comprobante digital detallado de la venta por WhatsApp al cliente o al número indicado.
-        Incluye desglose completo de productos, cantidades, precios unitarios, subtotal y total.
+        Envía la foto oficial del ticket de compra por WhatsApp al cliente.
+        Si la entrega de imagen falla por alguna razón, recurre a un resumen escrito.
         """
         target_phone = phone_number or (sale.customer.phone if sale.customer else None)
         if not target_phone or not str(target_phone).strip():
@@ -361,60 +596,31 @@ class SaleService:
             colmado_name = branch.name if branch else settings.name
             now_str = timezone.localtime(sale.created_at).strftime('%d/%m/%Y %I:%M %p')
 
-            # Construir desglose detallado de los artículos comprados
-            items_lines = []
-            for it in sale.items.select_related('product').all():
-                qty_str = f"{it.quantity:g}"
-                prod_name = it.product.name
-                line_sub = f"RD$ {it.subtotal:,.2f}"
-                unit_label = it.product.get_unit_of_measure_display() if hasattr(it.product, 'get_unit_of_measure_display') else ''
-                unit_tag = f" {unit_label}" if it.product.allows_decimals and unit_label else ""
-                if it.discount > Decimal('0.00'):
-                    items_lines.append(f"• {qty_str}{unit_tag} x {prod_name} — {line_sub} (Desc. RD$ {it.discount:,.2f})")
-                else:
-                    items_lines.append(f"• {qty_str}{unit_tag} x {prod_name} — {line_sub}")
+            # 1. Generar la imagen visual exacta del ticket térmico
+            rel_path = ReceiptImageGenerator.generate_receipt_image(sale)
+            
+            # Construir URL accesible para WAHA (Docker o nube)
+            if request:
+                image_url = request.build_absolute_uri(f"/media/{rel_path}")
+            else:
+                image_url = f"http://127.0.0.1:8000/media/{rel_path}"
 
-            items_text = "\n".join(items_lines) if items_lines else "• Artículos del colmado"
-
-            cliente_nombre = sale.customer.name if sale.customer else "Cliente"
-            cajero_nombre = sale.cashier.get_full_name() or sale.cashier.username if sale.cashier else "Caja"
-
-            slogan_text = f"\n_{branch.slogan or settings.slogan}_\n" if (branch and branch.slogan) or settings.slogan else ""
-            footer_msg = branch.receipt_footer or settings.receipt_footer or "¡Gracias por preferirnos!"
-
-            msg = (
-                f"🧾 *{colmado_name.upper()}*\n"
-                f"{slogan_text}"
-                f"*Comprobante de Compra* — #{sale.ticket_number}\n"
-                f"*Fecha:* {now_str}\n"
-                f"*Cliente:* {cliente_nombre}\n"
-                f"*Cajero:* {cajero_nombre}\n\n"
-                f"🛒 *DETALLE DE LO TOMADO:*\n"
-                f"{items_text}\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"*Subtotal:* RD$ {sale.subtotal:,.2f}\n"
+            caption = (
+                f"🧾 *Recibo de Compra — #{sale.ticket_number}*\n"
+                f"🏪 *{colmado_name.upper()}*\n"
+                f"📅 *Fecha:* {now_str}\n"
+                f"💰 *Total:* RD$ {sale.total:,.2f}\n"
+                f"Gracias por comprar en {colmado_name}."
             )
 
-            if sale.discount > Decimal('0.00'):
-                msg += f"*Descuento:* -RD$ {sale.discount:,.2f}\n"
-
-            msg += (
-                f"*TOTAL A PAGAR:* RD$ {sale.total:,.2f}\n"
-                f"*Forma de Pago:* {sale.get_payment_method_display()}\n"
-            )
-
-            if sale.change_given > Decimal('0.00'):
-                msg += f"*Devuelta / Cambio:* RD$ {sale.change_given:,.2f}\n"
-
-            if sale.customer and sale.customer.current_balance > Decimal('0.00'):
-                msg += f"\n📌 *Balance Total en Libreta:* RD$ {sale.customer.current_balance:,.2f}\n"
-
-            msg += f"\n{footer_msg}"
-
-            msg_record = WhatsAppService.send_text_message(
+            # 2. Despachar imagen a través del servicio unificado de WhatsApp
+            msg_record = WhatsAppService.send_image_message(
                 phone_number=target_phone,
-                text=msg,
-                user=user
+                image_url=image_url,
+                caption=caption,
+                filename=f"ticket_{sale.ticket_number}.png",
+                user=user,
+                relative_file_path=rel_path
             )
 
             AuditLog.objects.create(
@@ -422,18 +628,18 @@ class SaleService:
                 action='ENVIAR_RECIBO_WHATSAPP',
                 target_model='Sale',
                 target_id=sale.ticket_number,
-                details=f"Comprobante enviado por WhatsApp al {target_phone}."
+                details=f"Comprobante en imagen enviado por WhatsApp al {target_phone}."
             )
 
             return {
                 'success': True,
                 'phone': target_phone,
-                'message': f"Comprobante enviado por WhatsApp al {target_phone} exitosamente."
+                'message': f"Comprobante (foto del ticket) enviado por WhatsApp al {target_phone} exitosamente."
             }
         except Exception as e:
             return {
                 'success': False,
-                'error': f"Error al enviar mensaje por WhatsApp: {str(e)}"
+                'error': f"Error al enviar comprobante por WhatsApp: {str(e)}"
             }
 
     @classmethod

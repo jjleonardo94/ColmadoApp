@@ -80,9 +80,6 @@
         <!-- Business Header -->
         <div class="text-center pb-3 border-b border-dashed border-slate-400 space-y-1">
             <h2 class="font-bold text-base uppercase tracking-wider">{{ sale.branch.name|default:settings.name }}</h2>
-            {% if sale.branch.slogan or settings.slogan %}
-            <p class="text-[11px] italic">{{ sale.branch.slogan|default:settings.slogan }}</p>
-            {% endif %}
             <p class="text-xs">RNC: {{ sale.branch.rnc|default:settings.rnc|default:"Consumidor Final" }}</p>
             <p class="text-xs">Tel: {{ sale.branch.phone|default:settings.phone }}</p>
             <p class="text-[10px]">{{ sale.branch.address|default:settings.address }}</p>
@@ -180,10 +177,9 @@
 
         <!-- Footer & Barcode Slogan -->
         <div class="pt-4 text-center space-y-2">
-            <p class="text-[11px] whitespace-pre-line leading-relaxed">{{ sale.branch.receipt_footer|default:settings.receipt_footer }}</p>
-            <div class="text-[9px] text-slate-400 font-mono">
-                *** GRACIAS POR PREFERIRNOS ***<br>
-                ColmadoPOS RD
+            <p class="text-[11px] whitespace-pre-line leading-relaxed font-bold text-slate-800">Gracias por comprar en {{ sale.branch.name|default:settings.name }}</p>
+            <div class="text-[10px] text-slate-500 font-mono">
+                *** GRACIAS POR PREFERIRNOS ***
             </div>
         </div>
     </div>

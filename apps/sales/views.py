@@ -136,7 +136,8 @@ class CreateSaleAPIView(LoginRequiredMixin, View):
                 whatsapp_result = SaleService.send_sale_whatsapp_receipt(
                     sale=sale,
                     phone_number=whatsapp_phone,
-                    user=request.user
+                    user=request.user,
+                    request=request
                 )
 
             return JsonResponse({
@@ -169,7 +170,8 @@ class SendSaleWhatsAppAPIView(LoginRequiredMixin, View):
         result = SaleService.send_sale_whatsapp_receipt(
             sale=sale,
             phone_number=phone,
-            user=request.user
+            user=request.user,
+            request=request
         )
         return JsonResponse(result, status=200 if result.get('success') else 400)
 

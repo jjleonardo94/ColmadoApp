@@ -1486,8 +1486,24 @@
             if (data.success) {
                 cart = [];
                 renderCart();
+                resetCustomerToDefault();
                 closePaymentModal();
-                window.location.href = data.receipt_url;
+                btnConfirm.disabled = false;
+                btnConfirm.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Confirmar Venta';
+                isSubmitting = false;
+
+                let successMsg = `¡Venta #${data.ticket_number} completada con éxito! (Total: RD$ ${parseFloat(data.total).toFixed(2)})`;
+                if (data.whatsapp_sent) {
+                    successMsg += ' — Comprobante enviado por WhatsApp.';
+                }
+                showToast(successMsg, 'success');
+                if (window.lucide) lucide.createIcons();
+
+                const searchInp = document.getElementById('productSearchInput');
+                if (searchInp) {
+                    searchInp.value = '';
+                    searchInp.focus();
+                }
             } else {
                 showToast("Error al procesar la venta: " + data.error, "error");
                 btnConfirm.disabled = false;

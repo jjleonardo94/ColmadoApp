@@ -242,6 +242,64 @@ class WAHAService:
             }
 
 
+    @classmethod
+    def send_image_message(cls, phone_number: str, image_url: str, caption: str = '', filename: str = 'ticket.png', session: str = None) -> dict:
+        """
+        Despacha una imagen a través de WAHA (/api/sendImage).
+        Soporta URLs públicas o rutas locales mapeadas para Docker.
+        """
+        clean_phone = WhatsAppService.normalize_phone(phone_number)
+        chat_id = f"{clean_phone}@c.us"
+        s_name = session or cls.get_session()
+
+        target_url = image_url
+        if 'localhost:8000' in target_url or '127.0.0.1:8000' in target_url:
+            target_url = target_url.replace('localhost:8000', 'host.docker.internal:8000').replace('127.0.0.1:8000', 'host.docker.internal:8000')
+
+        url = f"{cls.get_api_url()}/api/sendImage"
+        payload = {
+            "session": s_name,
+            "chatId": chat_id,
+            "file": {
+                "url": target_url,
+                "filename": filename,
+                "mimetype": "image/png"
+            },
+            "caption": caption
+        }
+
+        try:
+            resp = requests.post(url, json=payload, headers=cls.get_headers(), timeout=15)
+            data = resp.json() if resp.content else {}
+            if resp.status_code in [200, 201]:
+                raw_id = data.get('id', '')
+                if isinstance(raw_id, dict):
+                    msg_id = raw_id.get('_serialized') or raw_id.get('id') or str(raw_id)
+                else:
+                    msg_id = str(raw_id)
+                return {
+                    'success': True,
+                    'message_id': str(msg_id)[:140],
+                    'data': data
+                }
+            else:
+                err_text = data.get('message') or data.get('error') or resp.text
+                return {
+                    'success': False,
+                    'error': f"WAHA Error ({resp.status_code}): {err_text}"
+                }
+        except requests.exceptions.ConnectionError:
+            return {
+                'success': False,
+                'error': f"El servidor WAHA no está activo en {cls.get_api_url()}."
+            }
+        except Exception as ex:
+            return {
+                'success': False,
+                'error': f"Error al enviar imagen por WAHA: {str(ex)}"
+            }
+
+
 class WhatsAppService:
     @staticmethod
     def normalize_phone(phone_str: str) -> str:
@@ -828,4 +886,66 @@ class WhatsAppService:
         conversation.last_message_at = timezone.now()
         conversation.save(update_fields=['last_message_text', 'last_message_at'])
         return msg_record
+
+
+    @classmethod
+    def send_image_message(cls, phone_number: str, image_url: str, caption: str = '', filename: str = 'ticket.png', conversation: WhatsAppConversation = None, user = None, relative_file_path: str = '') -> WhatsAppMessage:
+        """
+        Envía una imagen (ej. foto del ticket térmico) al contacto de WhatsApp.
+        Si la entrega multimedia falla en WAHA, recurre automáticamente a mensaje de texto.
+        """
+        clean_phone = cls.normalize_phone(phone_number)
+        
+        if not conversation:
+            contact, _ = WhatsAppContact.objects.get_or_create(
+                phone=clean_phone,
+                defaults={'display_name': f"Contacto {clean_phone}"}
+            )
+            conversation, _ = WhatsAppConversation.objects.get_or_create(
+                contact=contact,
+                defaults={'status': ConversationStatus.EN_ATENCION}
+            )
+
+        clean_saved_text = cls.sanitize_message_content(caption or '[Foto de Recibo]')
+        msg_record = WhatsAppMessage(
+            conversation=conversation,
+            direction=MessageDirection.OUTBOUND,
+            message_type='image',
+            content=clean_saved_text,
+            media_url=image_url,
+            media_mime_type='image/png',
+            sent_by=user,
+        )
+        if relative_file_path:
+            msg_record.media_file.name = relative_file_path
+
+        waha_url = getattr(settings, 'WAHA_API_URL', '')
+        if waha_url:
+            res = WAHAService.send_image_message(
+                phone_number=clean_phone,
+                image_url=image_url,
+                caption=caption,
+                filename=filename
+            )
+            if res.get('success'):
+                raw_wamid = res.get('message_id') or f"waha_{int(time.time()*1000)}"
+                if isinstance(raw_wamid, dict):
+                    raw_wamid = raw_wamid.get('_serialized') or raw_wamid.get('id') or str(raw_wamid)
+                msg_record.wamid = str(raw_wamid)[:140]
+                msg_record.status = MessageStatus.SENT
+                msg_record.save()
+                conversation.last_message_text = clean_saved_text
+                conversation.last_message_at = timezone.now()
+                conversation.save(update_fields=['last_message_text', 'last_message_at'])
+                return msg_record
+            else:
+                logger.warning("Fallo envío de imagen en WAHA: %s. Reintentando como texto resumen...", res.get('error'))
+
+        # Fallback a mensaje de texto si falla la imagen
+        return cls.send_text_message(
+            phone_number=clean_phone,
+            text=caption,
+            conversation=conversation,
+            user=user
+        )
 
