@@ -24,5 +24,5 @@ class OpenShiftForm(forms.Form):
         super().__init__(*args, **kwargs)
         from apps.core.models import BusinessSettings
         settings = BusinessSettings.get_settings()
-        if 'initial_cash' not in self.initial or not self.initial['initial_cash']:
+        if 'initial_cash' not in self.initial or self.initial.get('initial_cash') is None:
             self.fields['initial_cash'].initial = settings.default_initial_cash

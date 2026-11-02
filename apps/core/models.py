@@ -113,3 +113,58 @@ class ColmadoBranch(models.Model):
                 is_active=True
             )
         return branch
+
+    @classmethod
+    def resolve_branch(cls, branch=None, branch_id=None, request=None, user=None, customer=None, sale=None):
+        """
+        Resuelve de forma robusta la sucursal activa según el contexto operativo.
+        Prioridad:
+        1. Objeto branch explícito
+        2. ID de sucursal explícito (branch_id)
+        3. Sucursal de la venta (sale.branch)
+        4. Sucursal activa en sesión (request.session['active_branch_id'])
+        5. Sucursal del cliente (customer.branch)
+        6. Primera sucursal permitida del usuario
+        7. Sucursal principal por defecto
+        """
+        if branch and getattr(branch, 'name', None):
+            return branch
+        if branch_id:
+            b = cls.objects.filter(id=branch_id, is_active=True).first()
+            if b:
+                return b
+        if sale and getattr(sale, 'branch', None):
+            return sale.branch
+        if request and hasattr(request, 'session'):
+            active_id = request.session.get('active_branch_id')
+            if active_id:
+                b = cls.objects.filter(id=active_id, is_active=True).first()
+                if b:
+                    return b
+        if customer and getattr(customer, 'branch', None):
+            return customer.branch
+        if user and hasattr(user, 'profile'):
+            allowed = user.profile.get_allowed_branches()
+            b = allowed.first() if hasattr(allowed, 'first') else (allowed[0] if allowed else None)
+            if b:
+                return b
+        return cls.get_default_branch()
+
+    @classmethod
+    def get_business_name(cls, branch=None, branch_id=None, request=None, user=None, customer=None, sale=None) -> str:
+        """
+        Retorna el nombre comercial del colmado activo en el contexto actual.
+        """
+        b = cls.resolve_branch(
+            branch=branch,
+            branch_id=branch_id,
+            request=request,
+            user=user,
+            customer=customer,
+            sale=sale
+        )
+        if b and b.name:
+            return b.name
+        settings_obj = BusinessSettings.get_settings()
+        return settings_obj.name or "Colmado El Progreso"
+

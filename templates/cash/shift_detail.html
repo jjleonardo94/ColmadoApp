@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load humanize %}
+{% load humanize core_tags %}
 
 {% block title %}Detalle de Cierre de Caja #{{ shift.id }} - ColmadoPOS{% endblock %}
 
@@ -104,14 +104,14 @@
             </div>
         </div>
 
-        <!-- Los 6 Conceptos Clave del Cierre -->
+        <!-- Conceptos Clave del Cierre -->
         <div class="space-y-3 print-avoid-break">
             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
                 <i data-lucide="layout-grid" class="w-4 h-4 text-orange-600"></i>
-                <span>Conciliación de Ventas del Turno &mdash; Los 6 Conceptos del Cierre (Haga clic en cualquiera para consultar el detalle)</span>
+                <span>Conciliación de Ventas del Turno &mdash; Conceptos del Cierre (Haga clic en cualquiera para consultar el detalle)</span>
             </h4>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 print:grid-cols-3 print:gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 print:grid-cols-4 print:gap-2">
                 <!-- 1. Venta Crédito -->
                 <div onclick="openConceptModal('modalCredito')" class="concept-card cursor-pointer bg-amber-50/40 p-4 rounded-xl border border-amber-200 hover:border-amber-400 transition-all group">
                     <div class="flex items-center justify-between text-xs font-bold text-amber-900 mb-1">
@@ -121,7 +121,7 @@
                         </span>
                         <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-amber-400 group-hover:translate-x-1 transition-transform"></i>
                     </div>
-                    <p class="text-lg font-black text-amber-900">RD$ {{ audit.credit_sales|floatformat:2|intcomma }}</p>
+                    <p class="text-lg font-black text-amber-900">RD$ {{ audit.credit_sales|format_money }}</p>
                     <span class="text-[10px] text-slate-500">Pendiente de cobro en libreta</span>
                 </div>
 
@@ -134,8 +134,8 @@
                         </span>
                         <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-blue-400 group-hover:translate-x-1 transition-transform"></i>
                     </div>
-                    <p class="text-lg font-black text-blue-900">RD$ {{ audit.total_transfers|floatformat:2|intcomma }}</p>
-                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.transfer_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_transfer|floatformat:2|intcomma }}</span>
+                    <p class="text-lg font-black text-blue-900">RD$ {{ audit.total_transfers|format_money }}</p>
+                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.transfer_sales|format_money }} | Abonos: RD$ {{ audit.abonos_transfer|format_money }}</span>
                 </div>
 
                 <!-- 3. Efectivo -->
@@ -147,8 +147,8 @@
                         </span>
                         <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-1 transition-transform"></i>
                     </div>
-                    <p class="text-lg font-black text-emerald-900">RD$ {{ audit.total_cash_inflow|floatformat:2|intcomma }}</p>
-                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.cash_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_cash|floatformat:2|intcomma }}</span>
+                    <p class="text-lg font-black text-emerald-900">RD$ {{ audit.total_cash_inflow|format_money }}</p>
+                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.cash_sales|format_money }} | Abonos: RD$ {{ audit.abonos_cash|format_money }}</span>
                 </div>
 
                 <!-- 4. Tarjetas -->
@@ -160,8 +160,8 @@
                         </span>
                         <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-indigo-400 group-hover:translate-x-1 transition-transform"></i>
                     </div>
-                    <p class="text-lg font-black text-indigo-900">RD$ {{ audit.total_cards|floatformat:2|intcomma }}</p>
-                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.card_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_card|floatformat:2|intcomma }}</span>
+                    <p class="text-lg font-black text-indigo-900">RD$ {{ audit.total_cards|format_money }}</p>
+                    <span class="text-[10px] text-slate-500">Ventas: RD$ {{ audit.card_sales|format_money }} | Abonos: RD$ {{ audit.abonos_card|format_money }}</span>
                 </div>
 
                 <!-- 5. Fondo Caja -->
@@ -173,7 +173,7 @@
                         </span>
                         <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 transition-transform"></i>
                     </div>
-                    <p class="text-lg font-black text-slate-900">RD$ {{ shift.initial_cash|floatformat:2|intcomma }}</p>
+                    <p class="text-lg font-black text-slate-900">RD$ {{ shift.initial_cash|format_money }}</p>
                     <span class="text-[10px] text-slate-500">Base inicial para devueltas</span>
                 </div>
 
@@ -186,8 +186,21 @@
                         </span>
                         <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-teal-400 group-hover:translate-x-1 transition-transform"></i>
                     </div>
-                    <p class="text-lg font-black text-teal-900">RD$ {{ audit.total_abonos|floatformat:2|intcomma }}</p>
+                    <p class="text-lg font-black text-teal-900">RD$ {{ audit.total_abonos|format_money }}</p>
                     <span class="text-[10px] text-slate-500">Recuperación de cuentas por cobrar</span>
+                </div>
+
+                <!-- 7. Gastos en Efectivo -->
+                <div onclick="openConceptModal('modalGastos')" class="concept-card cursor-pointer bg-rose-50/40 p-4 rounded-xl border border-rose-200 hover:border-rose-400 transition-all group">
+                    <div class="flex items-center justify-between text-xs font-bold text-rose-900 mb-1">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="receipt-text" class="w-4 h-4 text-rose-600"></i>
+                            7. Gastos en Efectivo
+                        </span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-rose-400 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                    <p class="text-lg font-black text-rose-900">RD$ {{ audit.cash_expenses|format_money }}</p>
+                    <span class="text-[10px] text-slate-500">Salidas de gaveta &bull; Descontado</span>
                 </div>
             </div>
         </div>
@@ -209,35 +222,35 @@
                 <div class="space-y-1.5 text-xs">
                     <div class="flex justify-between py-1 border-b border-slate-100">
                         <span class="text-slate-600">Ventas en Efectivo Contado:</span>
-                        <span class="font-bold text-slate-800">RD$ {{ audit.cash_sales|floatformat:2|intcomma }}</span>
+                        <span class="font-bold text-slate-800">RD$ {{ audit.cash_sales|format_money }}</span>
                     </div>
                     <div class="flex justify-between py-1 border-b border-slate-100">
                         <span class="text-slate-600">Ventas con Tarjeta:</span>
-                        <span class="font-bold text-slate-800">RD$ {{ audit.card_sales|floatformat:2|intcomma }}</span>
+                        <span class="font-bold text-slate-800">RD$ {{ audit.card_sales|format_money }}</span>
                     </div>
                     <div class="flex justify-between py-1 border-b border-slate-100">
                         <span class="text-slate-600">Ventas por Transferencia:</span>
-                        <span class="font-bold text-slate-800">RD$ {{ audit.transfer_sales|floatformat:2|intcomma }}</span>
+                        <span class="font-bold text-slate-800">RD$ {{ audit.transfer_sales|format_money }}</span>
                     </div>
                     <div class="flex justify-between py-1 border-b border-amber-200 bg-amber-50/60 px-1.5 rounded">
                         <span class="font-bold text-amber-900">Ventas a Crédito (Libreta):</span>
-                        <span class="font-black text-amber-700">RD$ {{ audit.credit_sales|floatformat:2|intcomma }}</span>
+                        <span class="font-black text-amber-700">RD$ {{ audit.credit_sales|format_money }}</span>
                     </div>
                 </div>
 
                 <div class="pt-2 border-t-2 border-blue-200 space-y-1">
                     <div class="flex justify-between items-center text-xs">
                         <span class="font-bold text-blue-900 uppercase">Venta Total Bruta:</span>
-                        <span class="font-black text-blue-950 text-sm">RD$ {{ audit.total_gross_sales|floatformat:2|intcomma }}</span>
+                        <span class="font-black text-blue-950 text-sm">RD$ {{ audit.total_gross_sales|format_money }}</span>
                     </div>
                     {% if audit.total_discount > 0 %}
                     <div class="flex justify-between text-xs text-rose-600 pt-1">
                         <span>(-) Descuentos Otorgados:</span>
-                        <span class="font-bold">-RD$ {{ audit.total_discount|floatformat:2|intcomma }}</span>
+                        <span class="font-bold">-RD$ {{ audit.total_discount|format_money }}</span>
                     </div>
                     <div class="flex justify-between text-xs font-bold text-slate-900 pt-1 border-t border-slate-200">
                         <span>Venta Neta del Período:</span>
-                        <span class="font-black">RD$ {{ audit.net_sales|floatformat:2|intcomma }}</span>
+                        <span class="font-black">RD$ {{ audit.net_sales|format_money }}</span>
                     </div>
                     {% endif %}
                 </div>
@@ -258,19 +271,19 @@
                 <div class="space-y-1.5 text-xs">
                     <div class="flex justify-between py-1 border-b border-slate-100">
                         <span class="text-slate-600">Fondo Inicial de Caja:</span>
-                        <span class="font-bold text-slate-800">RD$ {{ shift.initial_cash|floatformat:2|intcomma }}</span>
+                        <span class="font-bold text-slate-800">RD$ {{ shift.initial_cash|format_money }}</span>
                     </div>
                     <div class="flex justify-between py-1 border-b border-slate-100">
                         <span class="text-slate-600">(+) Ventas del Turno en Efectivo:</span>
-                        <span class="font-bold text-emerald-600">+RD$ {{ audit.cash_sales|floatformat:2|intcomma }}</span>
+                        <span class="font-bold text-emerald-600">+RD$ {{ audit.cash_sales|format_money }}</span>
                     </div>
                     <div class="flex justify-between py-1 border-b border-slate-100">
                         <span class="text-slate-600">(+) Cobros / Abonos CxC en Efectivo:</span>
-                        <span class="font-bold text-emerald-600">+RD$ {{ audit.abonos_cash|floatformat:2|intcomma }}</span>
+                        <span class="font-bold text-emerald-600">+RD$ {{ audit.abonos_cash|format_money }}</span>
                     </div>
                     <div class="flex justify-between py-1 border-b border-slate-100">
                         <span class="text-slate-600">(-) Gastos Pagados en Efectivo:</span>
-                        <span class="font-bold text-rose-600">-RD$ {{ audit.cash_expenses|floatformat:2|intcomma }}</span>
+                        <span class="font-bold text-rose-600">-RD$ {{ audit.cash_expenses|format_money }}</span>
                     </div>
                 </div>
 
@@ -278,20 +291,20 @@
                     <div class="flex justify-between items-center text-xs">
                         <span class="font-bold text-slate-700">Efectivo Esperado en Gaveta:</span>
                         <span class="font-black text-slate-900 text-sm">
-                            RD$ {{ audit.expected_cash|floatformat:2|intcomma }}
+                            RD$ {{ audit.expected_cash|format_money }}
                         </span>
                     </div>
                     <div class="flex justify-between items-center text-xs">
                         <span class="font-bold text-slate-700">Efectivo Contado Físicamente:</span>
                         <span class="font-black text-slate-900 text-sm">
-                            {% if shift.counted_cash is not None %}RD$ {{ shift.counted_cash|floatformat:2|intcomma }}{% else %}<span class="text-amber-600 text-xs">(En turno abierto)</span>{% endif %}
+                            {% if shift.counted_cash is not None %}RD$ {{ shift.counted_cash|format_money }}{% else %}<span class="text-amber-600 text-xs">(En turno abierto)</span>{% endif %}
                         </span>
                     </div>
                     <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-200">
                         <span class="font-bold text-slate-900">Diferencia de Caja:</span>
                         <span class="text-sm font-black {% if shift.difference < 0 %}text-rose-600{% elif shift.difference > 0 %}text-blue-600{% else %}text-emerald-600{% endif %}">
                             {% if shift.difference is not None %}
-                                {% if shift.difference > 0 %}+{% endif %}RD$ {{ shift.difference|floatformat:2|intcomma }}
+                                {% if shift.difference > 0 %}+{% endif %}RD$ {{ shift.difference|format_money }}
                                 {% if shift.difference == 0 %}<span class="text-[11px] font-bold text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded ml-1">Exacto</span>{% endif %}
                             {% else %}
                                 -
@@ -306,9 +319,9 @@
                         <span class="text-slate-500 text-[10px] block">Fondo Dejado en Gaveta:</span>
                         <span class="font-bold text-emerald-800">
                             {% if shift.cash_to_remain is not None %}
-                            RD$ {{ shift.cash_to_remain|floatformat:2|intcomma }}
+                            RD$ {{ shift.cash_to_remain|format_money }}
                             {% else %}
-                            RD$ {{ shift.initial_cash|floatformat:2|intcomma }}
+                            RD$ {{ shift.initial_cash|format_money }}
                             {% endif %}
                         </span>
                     </div>
@@ -316,9 +329,9 @@
                         <span class="text-slate-500 text-[10px] block">Importe Retirado:</span>
                         <span class="font-bold text-indigo-900">
                             {% if shift.amount_withdrawn is not None %}
-                            RD$ {{ shift.amount_withdrawn|floatformat:2|intcomma }}
+                            RD$ {{ shift.amount_withdrawn|format_money }}
                             {% else %}
-                            RD$ 0.00
+                            RD$ 0
                             {% endif %}
                         </span>
                     </div>
@@ -369,14 +382,14 @@
                         <tr>
                             <td class="p-2.5 font-bold text-slate-800">{{ dc.denomination.name }}</td>
                             <td class="p-2.5 text-center font-bold">{{ dc.quantity }}</td>
-                            <td class="p-2.5 text-right font-bold text-slate-900">RD$ {{ dc.subtotal|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-bold text-slate-900">RD$ {{ dc.subtotal|format_money }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr class="bg-slate-50 font-bold border-t border-slate-200">
                             <td colspan="2" class="p-2.5 text-right uppercase text-slate-600">Total Arqueado Físicamente:</td>
-                            <td class="p-2.5 text-right font-black text-slate-900 text-sm">RD$ {{ shift.counted_cash|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-black text-slate-900 text-sm">RD$ {{ shift.counted_cash|format_money }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -414,9 +427,9 @@
                             <td class="p-2.5 text-slate-500">{{ mov.description|default:"-" }}</td>
                             <td class="p-2.5 text-right font-bold text-slate-900">
                                 {% if mov.movement_type == 'INGRESO' %}
-                                <span class="text-emerald-600">+RD$ {{ mov.amount|floatformat:2|intcomma }}</span>
+                                <span class="text-emerald-600">+RD$ {{ mov.amount|format_money }}</span>
                                 {% else %}
-                                <span class="text-rose-600">-RD$ {{ mov.amount|floatformat:2|intcomma }}</span>
+                                <span class="text-rose-600">-RD$ {{ mov.amount|format_money }}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -487,11 +500,11 @@
                                 <span class="text-slate-400 text-[10px]">{{ item.customer_phone|default:"Sin teléfono" }}</span>
                             </td>
                             <td class="p-2.5 text-slate-600 max-w-[200px] truncate" title="{{ item.items_summary }}">{{ item.items_summary }}</td>
-                            <td class="p-2.5 text-right font-medium">RD$ {{ item.total_sale|floatformat:2|intcomma }}</td>
-                            <td class="p-2.5 text-right font-bold text-amber-700">RD$ {{ item.credit_amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-medium">RD$ {{ item.total_sale|format_money }}</td>
+                            <td class="p-2.5 text-right font-bold text-amber-700">RD$ {{ item.credit_amount|format_money }}</td>
                             <td class="p-2.5 text-center">
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                    Debe: RD$ {{ item.customer_balance|floatformat:2|intcomma }}
+                                    Debe: RD$ {{ item.customer_balance|format_money }}
                                 </span>
                             </td>
                         </tr>
@@ -543,7 +556,7 @@
                             <td class="p-2.5 font-mono">{{ item.ticket }}</td>
                             <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
                             <td class="p-2.5 font-mono text-slate-600">{{ item.reference }}</td>
-                            <td class="p-2.5 text-right font-black text-blue-900">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-black text-blue-900">RD$ {{ item.amount|format_money }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="5" class="p-6 text-center text-slate-400">No se registraron transferencias en este turno.</td></tr>
@@ -593,7 +606,7 @@
                             <td class="p-2.5 font-mono text-slate-800">{{ item.ticket }}</td>
                             <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
                             <td class="p-2.5 text-slate-500">{{ item.user }}</td>
-                            <td class="p-2.5 text-right font-black text-emerald-700">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-black text-emerald-700">RD$ {{ item.amount|format_money }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="5" class="p-6 text-center text-slate-400">No hay movimientos de efectivo.</td></tr>
@@ -643,7 +656,7 @@
                             <td class="p-2.5 font-mono">{{ item.ticket }}</td>
                             <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
                             <td class="p-2.5 font-mono text-slate-600">{{ item.reference }}</td>
-                            <td class="p-2.5 text-right font-black text-indigo-900">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-black text-indigo-900">RD$ {{ item.amount|format_money }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="5" class="p-6 text-center text-slate-400">No se registraron pagos con tarjeta.</td></tr>
@@ -673,15 +686,15 @@
         <div class="p-5 text-xs space-y-3.5">
             <div class="flex justify-between py-2 border-b">
                 <span class="text-slate-600 font-medium">Fondo Inicial de Apertura:</span>
-                <span class="font-bold text-slate-900">RD$ {{ shift.initial_cash|floatformat:2|intcomma }}</span>
+                <span class="font-bold text-slate-900">RD$ {{ shift.initial_cash|format_money }}</span>
             </div>
             <div class="flex justify-between py-2 border-b">
                 <span class="text-slate-600 font-medium">Fondo Dejado al Cierre:</span>
                 <span class="font-bold text-emerald-700">
                     {% if shift.cash_to_remain is not None %}
-                    RD$ {{ shift.cash_to_remain|floatformat:2|intcomma }}
+                    RD$ {{ shift.cash_to_remain|format_money }}
                     {% else %}
-                    RD$ {{ shift.initial_cash|floatformat:2|intcomma }}
+                    RD$ {{ shift.initial_cash|format_money }}
                     {% endif %}
                 </span>
             </div>
@@ -689,9 +702,9 @@
                 <span class="text-slate-600 font-medium">Importe Retirado de Caja:</span>
                 <span class="font-bold text-indigo-900">
                     {% if shift.amount_withdrawn is not None %}
-                    RD$ {{ shift.amount_withdrawn|floatformat:2|intcomma }}
+                    RD$ {{ shift.amount_withdrawn|format_money }}
                     {% else %}
-                    RD$ 0.00
+                    RD$ 0
                     {% endif %}
                 </span>
             </div>
@@ -733,9 +746,9 @@
                             <td class="p-2.5 font-bold text-slate-800">{{ ab.client }}</td>
                             <td class="p-2.5 font-mono text-slate-600">{{ ab.account }}</td>
                             <td class="p-2.5 font-semibold text-slate-700">{{ ab.payment_method }}</td>
-                            <td class="p-2.5 text-right text-slate-500">RD$ {{ ab.balance_before|floatformat:2|intcomma }}</td>
-                            <td class="p-2.5 text-right font-black text-teal-700">RD$ {{ ab.amount|floatformat:2|intcomma }}</td>
-                            <td class="p-2.5 text-right font-bold text-slate-800">RD$ {{ ab.balance_after|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right text-slate-500">RD$ {{ ab.balance_before|format_money }}</td>
+                            <td class="p-2.5 text-right font-black text-teal-700">RD$ {{ ab.amount|format_money }}</td>
+                            <td class="p-2.5 text-right font-bold text-slate-800">RD$ {{ ab.balance_after|format_money }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="6" class="p-6 text-center text-slate-400">No se registraron abonos en este turno.</td></tr>
@@ -746,6 +759,62 @@
         </div>
         <div class="p-3 border-t bg-slate-50 text-right">
             <button onclick="closeConceptModal('modalAbonos')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 7: Gastos en Efectivo -->
+<div id="modalGastos" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-rose-50/50">
+            <div class="flex items-center gap-2 text-rose-900 font-bold text-sm">
+                <i data-lucide="receipt-text" class="w-5 h-5 text-rose-600"></i>
+                <span>Detalle de Gastos Pagados en Efectivo</span>
+            </div>
+            <button onclick="closeConceptModal('modalGastos')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-4 overflow-y-auto flex-1 text-xs space-y-3">
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-[10px]">
+                        <tr>
+                            <th class="p-2.5">Fecha / Hora</th>
+                            <th class="p-2.5">Categoría</th>
+                            <th class="p-2.5">Descripción</th>
+                            <th class="p-2.5">Registrado Por</th>
+                            <th class="p-2.5">Método</th>
+                            <th class="p-2.5 text-right">Monto RD$</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for exp in expenses_detail %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5 font-medium text-slate-600 whitespace-nowrap">{{ exp.date|date:"d/m/Y h:i A" }}</td>
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                    {{ exp.category }}
+                                </span>
+                            </td>
+                            <td class="p-2.5 font-semibold text-slate-800">{{ exp.description }}</td>
+                            <td class="p-2.5 text-slate-500">{{ exp.user }}</td>
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700">
+                                    {{ exp.payment_method }}
+                                </span>
+                            </td>
+                            <td class="p-2.5 text-right font-black text-rose-700">RD$ {{ exp.amount|format_money }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="p-6 text-center text-slate-400">No se registraron gastos en efectivo durante este turno.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="p-3 border-t bg-slate-50 text-right">
+            <button onclick="closeConceptModal('modalGastos')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
         </div>
     </div>
 </div>

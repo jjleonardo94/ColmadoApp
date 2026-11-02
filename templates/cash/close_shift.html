@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load humanize %}
+{% load humanize core_tags %}
 
 {% block title %}Cierre de Caja #{{ shift.id }} - ColmadoPOS{% endblock %}
 
@@ -21,17 +21,17 @@
         </a>
     </div>
 
-    <!-- 6 Conceptos Clave del Cierre (Interactivos con Clic) -->
+    <!-- 7 Conceptos Clave del Cierre (Interactivos con Clic) -->
     <div class="space-y-3">
         <div class="flex items-center justify-between">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
                 <i data-lucide="layout-grid" class="w-4 h-4 text-orange-600"></i>
-                <span>Resumen de los 6 Conceptos del Cierre (Haga clic en cualquiera para ver el detalle)</span>
+                <span>Resumen de los Conceptos del Cierre (Haga clic en cualquiera para ver el detalle)</span>
             </h3>
             <span class="text-[11px] text-slate-400">Auditoría contable del período</span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
             <!-- 1. Venta Crédito -->
             <div onclick="openConceptModal('modalCredito')" class="cursor-pointer bg-white p-4 rounded-2xl border border-amber-200/80 shadow-xs hover:shadow-md hover:border-amber-400 transition-all group">
                 <div class="flex items-center justify-between text-xs text-amber-800 font-bold mb-1">
@@ -41,7 +41,7 @@
                     </span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-amber-400 group-hover:translate-x-1 transition-transform"></i>
                 </div>
-                <p class="text-xl font-black text-amber-900 mt-1">RD$ {{ audit.credit_sales|floatformat:2|intcomma }}</p>
+                <p class="text-xl font-black text-amber-900 mt-1">RD$ {{ audit.credit_sales|format_money }}</p>
                 <p class="text-[11px] text-slate-500 mt-1">Pendiente de cobro &bull; No ingresa a gaveta física</p>
             </div>
 
@@ -54,8 +54,8 @@
                     </span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-blue-400 group-hover:translate-x-1 transition-transform"></i>
                 </div>
-                <p class="text-xl font-black text-blue-900 mt-1">RD$ {{ audit.total_transfers|floatformat:2|intcomma }}</p>
-                <p class="text-[11px] text-slate-500 mt-1">Ventas: RD$ {{ audit.transfer_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_transfer|floatformat:2|intcomma }}</p>
+                <p class="text-xl font-black text-blue-900 mt-1">RD$ {{ audit.total_transfers|format_money }}</p>
+                <p class="text-[11px] text-slate-500 mt-1">Ventas: RD$ {{ audit.transfer_sales|format_money }} | Abonos: RD$ {{ audit.abonos_transfer|format_money }}</p>
             </div>
 
             <!-- 3. Efectivo -->
@@ -67,8 +67,8 @@
                     </span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-emerald-400 group-hover:translate-x-1 transition-transform"></i>
                 </div>
-                <p class="text-xl font-black text-emerald-900 mt-1">RD$ {{ audit.total_cash_inflow|floatformat:2|intcomma }}</p>
-                <p class="text-[11px] text-slate-500 mt-1">Ventas: RD$ {{ audit.cash_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_cash|floatformat:2|intcomma }}</p>
+                <p class="text-xl font-black text-emerald-900 mt-1">RD$ {{ audit.total_cash_inflow|format_money }}</p>
+                <p class="text-[11px] text-slate-500 mt-1">Ventas: RD$ {{ audit.cash_sales|format_money }} | Abonos: RD$ {{ audit.abonos_cash|format_money }}</p>
             </div>
 
             <!-- 4. Tarjetas -->
@@ -80,8 +80,8 @@
                     </span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition-transform"></i>
                 </div>
-                <p class="text-xl font-black text-indigo-900 mt-1">RD$ {{ audit.total_cards|floatformat:2|intcomma }}</p>
-                <p class="text-[11px] text-slate-500 mt-1">Ventas: RD$ {{ audit.card_sales|floatformat:2|intcomma }} | Abonos: RD$ {{ audit.abonos_card|floatformat:2|intcomma }}</p>
+                <p class="text-xl font-black text-indigo-900 mt-1">RD$ {{ audit.total_cards|format_money }}</p>
+                <p class="text-[11px] text-slate-500 mt-1">Ventas: RD$ {{ audit.card_sales|format_money }} | Abonos: RD$ {{ audit.abonos_card|format_money }}</p>
             </div>
 
             <!-- 5. Fondo Caja -->
@@ -93,8 +93,8 @@
                     </span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform"></i>
                 </div>
-                <p class="text-xl font-black text-slate-900 mt-1">RD$ {{ shift.initial_cash|floatformat:2|intcomma }}</p>
-                <p class="text-[11px] text-slate-500 mt-1">Inicial: RD$ {{ shift.initial_cash|floatformat:2|intcomma }} &bull; Fijo cierre: RD$ {{ default_closing_fund|floatformat:2|intcomma }}</p>
+                <p class="text-xl font-black text-slate-900 mt-1">RD$ {{ shift.initial_cash|format_money }}</p>
+                <p class="text-[11px] text-slate-500 mt-1">Inicial: RD$ {{ shift.initial_cash|format_money }} &bull; Fijo cierre: RD$ {{ default_closing_fund|format_money }}</p>
             </div>
 
             <!-- 6. Abono CxC -->
@@ -106,8 +106,21 @@
                     </span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-teal-400 group-hover:translate-x-1 transition-transform"></i>
                 </div>
-                <p class="text-xl font-black text-teal-900 mt-1">RD$ {{ audit.total_abonos|floatformat:2|intcomma }}</p>
-                <p class="text-[11px] text-slate-500 mt-1">Efectivo: RD$ {{ audit.abonos_cash|floatformat:2|intcomma }} &bull; Otros: RD$ {{ audit.abonos_transfer|add:audit.abonos_card|floatformat:2|intcomma }}</p>
+                <p class="text-xl font-black text-teal-900 mt-1">RD$ {{ audit.total_abonos|format_money }}</p>
+                <p class="text-[11px] text-slate-500 mt-1">Efectivo: RD$ {{ audit.abonos_cash|format_money }} &bull; Otros: RD$ {{ audit.abonos_transfer|add:audit.abonos_card|format_money }}</p>
+            </div>
+
+            <!-- 7. Gastos en Efectivo -->
+            <div onclick="openConceptModal('modalGastos')" class="cursor-pointer bg-white p-4 rounded-2xl border border-rose-200/80 shadow-xs hover:shadow-md hover:border-rose-400 transition-all group">
+                <div class="flex items-center justify-between text-xs text-rose-800 font-bold mb-1">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="receipt-text" class="w-4 h-4 text-rose-600"></i>
+                        7. Gastos en Efectivo
+                    </span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-rose-400 group-hover:translate-x-1 transition-transform"></i>
+                </div>
+                <p class="text-xl font-black text-rose-900 mt-1">RD$ {{ audit.cash_expenses|format_money }}</p>
+                <p class="text-[11px] text-slate-500 mt-1">Salidas de gaveta &bull; Descontado del efectivo físico</p>
             </div>
         </div>
     </div>
@@ -124,12 +137,12 @@
                     Efectivo Esperado en Gaveta Física
                 </span>
                 <p class="text-[11px] text-orange-700 mt-0.5 font-medium">
-                    Fondo Inicial (RD$ {{ shift.initial_cash|floatformat:2|intcomma }}) + Ventas Efectivo (RD$ {{ audit.cash_sales|floatformat:2|intcomma }}) + Abonos Efectivo (RD$ {{ audit.abonos_cash|floatformat:2|intcomma }}) − Gastos Efectivo (RD$ {{ audit.cash_expenses|floatformat:2|intcomma }})
+                    Fondo Inicial (RD$ {{ shift.initial_cash|format_money }}) + Ventas Efectivo (RD$ {{ audit.cash_sales|format_money }}) + Abonos Efectivo (RD$ {{ audit.abonos_cash|format_money }}) − Gastos Efectivo (RD$ {{ audit.cash_expenses|format_money }})
                 </p>
             </div>
             <div class="text-right sm:text-right shrink-0">
                 <span class="text-xs text-orange-600 font-semibold block">Total Esperado</span>
-                <p id="expectedCashVal" class="text-2xl font-black text-orange-950" data-expected="{{ expected_cash }}">RD$ {{ expected_cash|floatformat:2|intcomma }}</p>
+                <p id="expectedCashVal" class="text-2xl font-black text-orange-950" data-expected="{{ expected_cash }}">RD$ {{ expected_cash|format_money }}</p>
             </div>
         </div>
 
@@ -161,13 +174,14 @@
                             <td class="p-3 text-slate-500">{{ denom.get_denomination_type_display }}</td>
                             <td class="p-3 text-center font-mono font-medium text-slate-700">RD$ {{ denom.value|floatformat:0 }}</td>
                             <td class="p-3 text-center">
-                                <input type="number" min="0" step="1" name="denom_{{ denom.id }}" value="0"
+                                <input type="number" min="0" step="1" name="denom_{{ denom.id }}" placeholder="0"
                                        data-value="{{ denom.value }}"
                                        oninput="calculateTotalCounted()"
-                                       class="denom-input w-28 px-3 py-1.5 border border-slate-300 rounded-lg text-center font-bold text-slate-900 focus:outline-none focus:border-orange-500">
+                                       onfocus="this.select()"
+                                       class="denom-input w-28 px-3 py-1.5 border border-slate-300 rounded-lg text-center font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-orange-500">
                             </td>
                             <td class="p-3 text-right font-mono font-bold text-slate-900">
-                                <span id="subtotal_{{ denom.id }}">RD$ 0.00</span>
+                                <span id="subtotal_{{ denom.id }}">RD$ 0</span>
                             </td>
                         </tr>
                         {% endfor %}
@@ -175,7 +189,7 @@
                     <tfoot>
                         <tr class="bg-slate-50 border-t-2 border-slate-200 text-sm font-bold">
                             <td colspan="4" class="p-3.5 text-right text-slate-700 uppercase font-bold text-xs">Total Efectivo Físico Contado:</td>
-                            <td class="p-3.5 text-right font-black text-slate-900 text-base" id="totalCountedDisplay">RD$ 0.00</td>
+                            <td class="p-3.5 text-right font-black text-slate-900 text-base" id="totalCountedDisplay">RD$ 0</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -290,11 +304,11 @@
                                 <span class="text-slate-400 text-[10px]">{{ item.customer_phone|default:"Sin teléfono" }}</span>
                             </td>
                             <td class="p-2.5 text-slate-600 max-w-[200px] truncate" title="{{ item.items_summary }}">{{ item.items_summary }}</td>
-                            <td class="p-2.5 text-right font-medium">RD$ {{ item.total_sale|floatformat:2|intcomma }}</td>
-                            <td class="p-2.5 text-right font-bold text-amber-700">RD$ {{ item.credit_amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-medium">RD$ {{ item.total_sale|format_money }}</td>
+                            <td class="p-2.5 text-right font-bold text-amber-700">RD$ {{ item.credit_amount|format_money }}</td>
                             <td class="p-2.5 text-center">
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                    Debe: RD$ {{ item.customer_balance|floatformat:2|intcomma }}
+                                    Debe: RD$ {{ item.customer_balance|format_money }}
                                 </span>
                             </td>
                         </tr>
@@ -347,7 +361,7 @@
                             <td class="p-2.5 font-mono">{{ item.ticket }}</td>
                             <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
                             <td class="p-2.5 font-mono text-slate-600">{{ item.reference }}</td>
-                            <td class="p-2.5 text-right font-black text-blue-900">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-black text-blue-900">RD$ {{ item.amount|format_money }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="5" class="p-6 text-center text-slate-400">No se registraron transferencias en este turno.</td></tr>
@@ -398,7 +412,7 @@
                             <td class="p-2.5 font-mono text-slate-800">{{ item.ticket }}</td>
                             <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
                             <td class="p-2.5 text-slate-500">{{ item.user }}</td>
-                            <td class="p-2.5 text-right font-black text-emerald-700">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-black text-emerald-700">RD$ {{ item.amount|format_money }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="5" class="p-6 text-center text-slate-400">No hay movimientos de efectivo en este turno.</td></tr>
@@ -449,7 +463,7 @@
                             <td class="p-2.5 font-mono">{{ item.ticket }}</td>
                             <td class="p-2.5 font-semibold text-slate-800">{{ item.client }}</td>
                             <td class="p-2.5 font-mono text-slate-600">{{ item.reference }}</td>
-                            <td class="p-2.5 text-right font-black text-indigo-900">RD$ {{ item.amount|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right font-black text-indigo-900">RD$ {{ item.amount|format_money }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="5" class="p-6 text-center text-slate-400">No se registraron pagos con tarjeta en este turno.</td></tr>
@@ -479,15 +493,15 @@
         <div class="p-5 text-xs space-y-3.5">
             <div class="flex justify-between py-2 border-b">
                 <span class="text-slate-600 font-medium">Fondo Inicial de Apertura:</span>
-                <span class="font-bold text-slate-900">RD$ {{ shift.initial_cash|floatformat:2|intcomma }}</span>
+                <span class="font-bold text-slate-900">RD$ {{ shift.initial_cash|format_money }}</span>
             </div>
             <div class="flex justify-between py-2 border-b">
                 <span class="text-slate-600 font-medium">Fondo Habitual Configurado:</span>
-                <span class="font-bold text-slate-900">RD$ {{ settings.default_initial_cash|floatformat:2|intcomma }}</span>
+                <span class="font-bold text-slate-900">RD$ {{ settings.default_initial_cash|format_money }}</span>
             </div>
             <div class="flex justify-between py-2 border-b">
                 <span class="text-slate-600 font-medium">Fondo Fijo a Permanecer al Cierre:</span>
-                <span class="font-bold text-emerald-700">RD$ {{ default_closing_fund|floatformat:2|intcomma }}</span>
+                <span class="font-bold text-emerald-700">RD$ {{ default_closing_fund|format_money }}</span>
             </div>
             <p class="text-[11px] text-slate-400">
                 El fondo de caja representa el efectivo destinado para cambio y devuelta. <strong>No debe sumarse como una venta</strong>.
@@ -531,9 +545,9 @@
                             <td class="p-2.5 font-bold text-slate-800">{{ ab.client }}</td>
                             <td class="p-2.5 font-mono text-slate-600">{{ ab.account }}</td>
                             <td class="p-2.5 font-semibold text-slate-700">{{ ab.payment_method }}</td>
-                            <td class="p-2.5 text-right text-slate-500">RD$ {{ ab.balance_before|floatformat:2|intcomma }}</td>
-                            <td class="p-2.5 text-right font-black text-teal-700">RD$ {{ ab.amount|floatformat:2|intcomma }}</td>
-                            <td class="p-2.5 text-right font-bold text-slate-800">RD$ {{ ab.balance_after|floatformat:2|intcomma }}</td>
+                            <td class="p-2.5 text-right text-slate-500">RD$ {{ ab.balance_before|format_money }}</td>
+                            <td class="p-2.5 text-right font-black text-teal-700">RD$ {{ ab.amount|format_money }}</td>
+                            <td class="p-2.5 text-right font-bold text-slate-800">RD$ {{ ab.balance_after|format_money }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="6" class="p-6 text-center text-slate-400">No se registraron abonos en este turno.</td></tr>
@@ -544,6 +558,63 @@
         </div>
         <div class="p-3 border-t bg-slate-50 text-right">
             <button onclick="closeConceptModal('modalAbonos')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 7: Gastos en Efectivo -->
+<div id="modalGastos" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-rose-50/50">
+            <div class="flex items-center gap-2 text-rose-900 font-bold text-sm">
+                <i data-lucide="receipt-text" class="w-5 h-5 text-rose-600"></i>
+                <span>Detalle de Gastos Pagados en Efectivo</span>
+            </div>
+            <button onclick="closeConceptModal('modalGastos')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-4 overflow-y-auto flex-1 text-xs space-y-3">
+            <p class="text-slate-500">Muestra los gastos operativos y compras menores pagados en <strong>efectivo físico</strong> durante este turno. Se restan directamente del efectivo esperado en gaveta.</p>
+            <div class="border rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-[10px]">
+                        <tr>
+                            <th class="p-2.5">Fecha / Hora</th>
+                            <th class="p-2.5">Categoría</th>
+                            <th class="p-2.5">Descripción</th>
+                            <th class="p-2.5">Registrado Por</th>
+                            <th class="p-2.5">Método</th>
+                            <th class="p-2.5 text-right">Monto RD$</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for exp in expenses_detail %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5 font-medium text-slate-600 whitespace-nowrap">{{ exp.date|date:"d/m/Y h:i A" }}</td>
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                    {{ exp.category }}
+                                </span>
+                            </td>
+                            <td class="p-2.5 font-semibold text-slate-800">{{ exp.description }}</td>
+                            <td class="p-2.5 text-slate-500">{{ exp.user }}</td>
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700">
+                                    {{ exp.payment_method }}
+                                </span>
+                            </td>
+                            <td class="p-2.5 text-right font-black text-rose-700">RD$ {{ exp.amount|format_money }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="p-6 text-center text-slate-400">No se registraron gastos en efectivo durante este turno.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="p-3 border-t bg-slate-50 text-right">
+            <button onclick="closeConceptModal('modalGastos')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold">Cerrar</button>
         </div>
     </div>
 </div>
@@ -564,23 +635,23 @@
         <div class="px-6 py-2 text-xs space-y-2.5">
             <div class="flex justify-between py-1.5 border-b border-slate-100">
                 <span class="text-slate-500">Efectivo Contado Físicamente:</span>
-                <span id="confirmContado" class="font-black text-slate-900 text-sm">RD$ 0.00</span>
+                <span id="confirmContado" class="font-black text-slate-900 text-sm">RD$ 0</span>
             </div>
             <div class="flex justify-between py-1.5 border-b border-slate-100">
                 <span class="text-slate-500">Efectivo Esperado en Gaveta:</span>
-                <span class="font-bold text-slate-800">RD$ {{ expected_cash|floatformat:2|intcomma }}</span>
+                <span class="font-bold text-slate-800">RD$ {{ expected_cash|format_money }}</span>
             </div>
             <div class="flex justify-between py-1.5 border-b border-slate-100">
                 <span class="text-slate-500">Diferencia de Caja:</span>
-                <span id="confirmDiferencia" class="font-black">RD$ 0.00</span>
+                <span id="confirmDiferencia" class="font-black">RD$ 0</span>
             </div>
             <div class="flex justify-between py-1.5 border-b border-slate-100">
                 <span class="text-slate-500">Fondo que Permanece en Gaveta:</span>
-                <span id="confirmPermanece" class="font-bold text-emerald-700">RD$ 0.00</span>
+                <span id="confirmPermanece" class="font-bold text-emerald-700">RD$ 0</span>
             </div>
             <div class="flex justify-between py-1.5">
                 <span class="text-slate-500 font-bold">Importe a Retirar / Entregar:</span>
-                <span id="confirmRetirado" class="font-black text-indigo-900 text-sm">RD$ 0.00</span>
+                <span id="confirmRetirado" class="font-black text-indigo-900 text-sm">RD$ 0</span>
             </div>
         </div>
 
@@ -604,6 +675,14 @@
     let globalTotalCounted = 0;
     let globalDiff = 0;
 
+    function formatMoney(amount) {
+        const val = Number(amount) || 0;
+        return val.toLocaleString('en-US', {
+            minimumFractionDigits: (val % 1 !== 0) ? 2 : 0,
+            maximumFractionDigits: 2
+        });
+    }
+
     function calculateTotalCounted() {
         let total = 0;
         document.querySelectorAll('.denom-input').forEach(input => {
@@ -614,12 +693,12 @@
 
             const subEl = document.getElementById('subtotal_' + input.name.replace('denom_', ''));
             if (subEl) {
-                subEl.innerText = 'RD$ ' + sub.toLocaleString('es-DO', {minimumFractionDigits: 2});
+                subEl.innerText = 'RD$ ' + formatMoney(sub);
             }
         });
 
         globalTotalCounted = total;
-        document.getElementById('totalCountedDisplay').innerText = 'RD$ ' + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('totalCountedDisplay').innerText = 'RD$ ' + formatMoney(total);
 
         const diff = total - expectedCash;
         globalDiff = diff;
@@ -630,19 +709,19 @@
 
         if (Math.abs(diff) < 0.01) {
             banner.className = "p-4 rounded-xl border flex items-center justify-between text-xs font-bold bg-emerald-50 border-emerald-200 text-emerald-800";
-            diffDisplay.innerText = "RD$ 0.00 (Cuadre Exacto)";
+            diffDisplay.innerText = "RD$ 0 (Cuadre Exacto)";
             diffDisplay.className = "text-base font-black text-emerald-700";
             explanationContainer.classList.add('hidden');
             explanationInput.required = false;
         } else if (diff > 0) {
             banner.className = "p-4 rounded-xl border flex items-center justify-between text-xs font-bold bg-blue-50 border-blue-200 text-blue-800";
-            diffDisplay.innerText = "+RD$ " + diff.toLocaleString('es-DO', {minimumFractionDigits: 2}) + " (Sobrante)";
+            diffDisplay.innerText = "+RD$ " + formatMoney(diff) + " (Sobrante)";
             diffDisplay.className = "text-base font-black text-blue-700";
             explanationContainer.classList.remove('hidden');
             explanationInput.required = true;
         } else {
             banner.className = "p-4 rounded-xl border flex items-center justify-between text-xs font-bold bg-rose-50 border-rose-200 text-rose-800";
-            diffDisplay.innerText = "-RD$ " + Math.abs(diff).toLocaleString('es-DO', {minimumFractionDigits: 2}) + " (Faltante)";
+            diffDisplay.innerText = "-RD$ " + formatMoney(Math.abs(diff)) + " (Faltante)";
             diffDisplay.className = "text-base font-black text-rose-700";
             explanationContainer.classList.remove('hidden');
             explanationInput.required = true;
@@ -655,7 +734,7 @@
         const remainInput = document.getElementById('cashToRemainInput');
         const remainVal = parseFloat(remainInput.value) || 0;
         const withdrawn = Math.max(0, globalTotalCounted - remainVal);
-        document.getElementById('withdrawnVal').innerText = 'RD$ ' + withdrawn.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('withdrawnVal').innerText = 'RD$ ' + formatMoney(withdrawn);
     }
 
     // Modal Helpers
@@ -679,22 +758,22 @@
         const remainVal = parseFloat(document.getElementById('cashToRemainInput').value) || 0;
         const withdrawn = Math.max(0, globalTotalCounted - remainVal);
 
-        document.getElementById('confirmContado').innerText = 'RD$ ' + globalTotalCounted.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('confirmContado').innerText = 'RD$ ' + formatMoney(globalTotalCounted);
         
         const confirmDiffEl = document.getElementById('confirmDiferencia');
         if (Math.abs(globalDiff) < 0.01) {
-            confirmDiffEl.innerText = "RD$ 0.00 (Cuadre Exacto)";
+            confirmDiffEl.innerText = "RD$ 0 (Cuadre Exacto)";
             confirmDiffEl.className = "font-black text-emerald-600";
         } else if (globalDiff > 0) {
-            confirmDiffEl.innerText = "+RD$ " + globalDiff.toLocaleString('es-DO', {minimumFractionDigits: 2}) + " (Sobrante)";
+            confirmDiffEl.innerText = "+RD$ " + formatMoney(globalDiff) + " (Sobrante)";
             confirmDiffEl.className = "font-black text-blue-600";
         } else {
-            confirmDiffEl.innerText = "-RD$ " + Math.abs(globalDiff).toLocaleString('es-DO', {minimumFractionDigits: 2}) + " (Faltante)";
+            confirmDiffEl.innerText = "-RD$ " + formatMoney(Math.abs(globalDiff)) + " (Faltante)";
             confirmDiffEl.className = "font-black text-rose-600";
         }
 
-        document.getElementById('confirmPermanece').innerText = 'RD$ ' + remainVal.toLocaleString('es-DO', {minimumFractionDigits: 2});
-        document.getElementById('confirmRetirado').innerText = 'RD$ ' + withdrawn.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById('confirmPermanece').innerText = 'RD$ ' + formatMoney(remainVal);
+        document.getElementById('confirmRetirado').innerText = 'RD$ ' + formatMoney(withdrawn);
 
         document.getElementById('confirmCloseModal').classList.remove('hidden');
     }

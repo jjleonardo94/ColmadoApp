@@ -114,6 +114,8 @@ class WhatsAppInboxView(LoginRequiredMixin, View):
         popular_products = Product.objects.filter(is_active=True).select_related('category')[:30]
         settings_obj = BusinessSettings.get_settings()
 
+        has_active_shift = CashShift.objects.filter(status=CashShiftStatus.ABIERTO).exists()
+
         return render(request, 'whatsapp/inbox.html', {
             'conversations': conversations,
             'selected_conv': selected_conv,
@@ -123,6 +125,7 @@ class WhatsAppInboxView(LoginRequiredMixin, View):
             'delivery_persons': dp_qs,
             'popular_products': popular_products,
             'settings': settings_obj,
+            'has_active_shift': has_active_shift,
         })
 
 
@@ -151,27 +154,34 @@ class SendWhatsAppMessageView(LoginRequiredMixin, View):
                 notes = cmd.get('notes', '')
                 payment_method = cmd.get('payment_method', 'EFECTIVO')
 
-                if cmd['type'] == 'ABONO':
-                    tx = CustomerCreditService.record_abono(
-                        customer_id=customer.id,
-                        amount=amount,
-                        payment_method=payment_method,
-                        user=request.user,
-                        notes=notes,
-                    )
-                    customer.refresh_from_db()
-                    flash_msg = f"Abono de RD$ {amount:,.2f} ({payment_method}) registrado exitosamente para {customer.name}. Deuda pendiente: RD$ {customer.current_balance:,.2f}"
-                    messages.success(request, flash_msg)
-                elif cmd['type'] == 'CARGO':
-                    tx = CustomerCreditService.record_cargo(
-                        customer_id=customer.id,
-                        amount=amount,
-                        user=request.user,
-                        notes=notes,
-                    )
-                    customer.refresh_from_db()
-                    flash_msg = f"Cargo de fiado por RD$ {amount:,.2f} registrado exitosamente para {customer.name}. Deuda total: RD$ {customer.current_balance:,.2f}"
-                    messages.success(request, flash_msg)
+                try:
+                    if cmd['type'] == 'ABONO':
+                        tx = CustomerCreditService.record_abono(
+                            customer_id=customer.id,
+                            amount=amount,
+                            payment_method=payment_method,
+                            user=request.user,
+                            notes=notes,
+                        )
+                        customer.refresh_from_db()
+                        flash_msg = f"Abono de RD$ {amount:,.2f} ({payment_method}) registrado exitosamente para {customer.name}. Deuda pendiente: RD$ {customer.current_balance:,.2f}"
+                        messages.success(request, flash_msg)
+                    elif cmd['type'] == 'CARGO':
+                        tx = CustomerCreditService.record_cargo(
+                            customer_id=customer.id,
+                            amount=amount,
+                            user=request.user,
+                            notes=notes,
+                        )
+                        customer.refresh_from_db()
+                        flash_msg = f"Cargo de fiado por RD$ {amount:,.2f} registrado exitosamente para {customer.name}. Deuda total: RD$ {customer.current_balance:,.2f}"
+                        messages.success(request, flash_msg)
+                except ValidationError as ex:
+                    err_msg = str(ex.message if hasattr(ex, 'message') else ex)
+                    messages.error(request, err_msg)
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    return redirect(f"/whatsapp/bandeja/?chat={conv.id}")
 
                 if is_ajax:
                     return JsonResponse({
@@ -257,6 +267,14 @@ class WhatsAppCreditActionView(LoginRequiredMixin, View):
             auto_registered = True
 
         prev_balance = customer.current_balance
+        active_branch_id = request.session.get('active_branch_id')
+        from apps.core.models import ColmadoBranch
+        active_branch = ColmadoBranch.resolve_branch(
+            branch_id=active_branch_id,
+            request=request,
+            user=request.user,
+            customer=customer
+        )
 
         try:
             if action_type == 'ABONO':
@@ -267,6 +285,7 @@ class WhatsAppCreditActionView(LoginRequiredMixin, View):
                     user=request.user,
                     notes=notes,
                     reference=reference,
+                    branch=active_branch,
                 )
                 customer.refresh_from_db()
                 success_msg = f"Abono de RD$ {amount:,.2f} ({payment_method}) registrado exitosamente para {customer.name}. Nuevo balance pendiente: RD$ {customer.current_balance:,.2f}"
@@ -278,6 +297,7 @@ class WhatsAppCreditActionView(LoginRequiredMixin, View):
                     user=request.user,
                     notes=notes,
                     reference=reference,
+                    branch=active_branch,
                 )
                 customer.refresh_from_db()
                 success_msg = f"Crédito por RD$ {amount:,.2f} registrado exitosamente para {customer.name}. Deuda total: RD$ {customer.current_balance:,.2f}"
@@ -444,44 +464,54 @@ class WhatsAppCreateSaleView(LoginRequiredMixin, View):
                 )
 
             # 5. Notificación automática por WhatsApp con el monto explícito de la compra
-            settings = BusinessSettings.get_settings()
-            total_fmt = f"RD$ {sale.total:,.2f}"
-            ticket_tag = f"Ticket #{sale.ticket_number}"
-
-            items_lines = []
-            if sale.items.exists():
-                for it in sale.items.select_related('product').all()[:6]:
-                    items_lines.append(f"• {it.quantity:g}x {it.product.name} (RD$ {it.subtotal:,.2f})")
-                if sale.items.count() > 6:
-                    items_lines.append(f"• ... y {sale.items.count() - 6} artículos más.")
-            items_summary = "\n" + "\n".join(items_lines) + "\n" if items_lines else ""
-
-            if sale_type == 'CREDITO':
-                conf_msg = (
-                    f"*{settings.name}*\n"
-                    f"Hola *{customer.name}*, confirmamos su compra a crédito ({ticket_tag}):\n"
-                    f"{items_summary}\n"
-                    f"• *Monto de esta compra:* {total_fmt}\n"
-                    f"• *Balance total adeudado:* RD$ {customer.current_balance:,.2f}\n\n"
-                    f"{'Su pedido va de camino con el delivery.' if destination_type == 'EXPRESS' else 'Su pedido está preparado.'}\n"
-                    f"¡Muchas gracias por su preferencia!"
+            # REGLA: Si destination_type == 'EXPRESS', NO enviar mensaje de que va de camino ahora.
+            # El mensaje se enviará ÚNICAMENTE cuando el colmadero presione "Enviar" o "Enviar todos los pedidos" en Delivery Express.
+            if destination_type != 'EXPRESS':
+                from apps.core.models import ColmadoBranch
+                colmado_name = ColmadoBranch.get_business_name(
+                    sale=sale,
+                    branch_id=active_branch_id,
+                    request=request,
+                    user=request.user,
+                    customer=customer
                 )
-            else:
-                conf_msg = (
-                    f"*{settings.name}*\n"
-                    f"Hola *{customer.name}*, confirmamos su compra ({ticket_tag}):\n"
-                    f"{items_summary}\n"
-                    f"• *Monto total de la compra:* {total_fmt} ({sale.get_payment_method_display()})\n\n"
-                    f"{'Su pedido va de camino con el delivery.' if destination_type == 'EXPRESS' else 'Su pedido está preparado.'}\n"
-                    f"¡Muchas gracias por su compra!"
-                )
+                total_fmt = f"RD$ {sale.total:,.2f}"
+                ticket_tag = f"Ticket #{sale.ticket_number}"
 
-            WhatsAppService.send_text_message(
-                phone_number=contact.phone,
-                text=conf_msg,
-                conversation=conv,
-                user=request.user
-            )
+                items_lines = []
+                if sale.items.exists():
+                    for it in sale.items.select_related('product').all()[:6]:
+                        items_lines.append(f"• {it.quantity:g}x {it.product.name} (RD$ {it.subtotal:,.2f})")
+                    if sale.items.count() > 6:
+                        items_lines.append(f"• ... y {sale.items.count() - 6} artículos más.")
+                items_summary = "\n" + "\n".join(items_lines) + "\n" if items_lines else ""
+
+                if sale_type == 'CREDITO':
+                    conf_msg = (
+                        f"*{colmado_name}*\n"
+                        f"Hola *{customer.name}*, confirmamos su compra a crédito ({ticket_tag}):\n"
+                        f"{items_summary}\n"
+                        f"• *Monto de esta compra:* {total_fmt}\n"
+                        f"• *Balance total adeudado:* RD$ {customer.current_balance:,.2f}\n\n"
+                        f"Su pedido está preparado.\n"
+                        f"¡Muchas gracias por su preferencia!"
+                    )
+                else:
+                    conf_msg = (
+                        f"*{colmado_name}*\n"
+                        f"Hola *{customer.name}*, confirmamos su compra ({ticket_tag}):\n"
+                        f"{items_summary}\n"
+                        f"• *Monto total de la compra:* {total_fmt} ({sale.get_payment_method_display()})\n\n"
+                        f"Su pedido está preparado.\n"
+                        f"¡Muchas gracias por su compra!"
+                    )
+
+                WhatsAppService.send_text_message(
+                    phone_number=contact.phone,
+                    text=conf_msg,
+                    conversation=conv,
+                    user=request.user
+                )
 
             return JsonResponse({
                 'success': True,

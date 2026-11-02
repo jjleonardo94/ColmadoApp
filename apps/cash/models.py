@@ -50,6 +50,14 @@ class CashShift(models.Model):
     closed_at = models.DateTimeField('Cierre', null=True, blank=True)
     
     initial_cash = models.DecimalField('Fondo Inicial de Caja (RD$)', max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    previous_shift = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='next_shifts',
+        verbose_name='Turno Anterior Vinculado'
+    )
     status = models.CharField('Estado del Turno', max_length=15, choices=CashShiftStatus.choices, default=CashShiftStatus.ABIERTO)
     closed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='closed_shifts', verbose_name='Cerrado Por')
     
@@ -92,10 +100,9 @@ class CashShift(models.Model):
         Calcula el efectivo que debería haber en gaveta en tiempo real:
         Fondo Inicial + Ventas en Efectivo + Abonos de Fiados en Efectivo - Gastos Pagados en Efectivo - Devoluciones en Efectivo
         """
-        movements = self.cash_movements.all()
-        incomes = sum(m.amount for m in movements if m.movement_type == 'INGRESO' and m.category != 'FONDO_INICIAL')
-        expenses = sum(m.amount for m in movements if m.movement_type == 'EGRESO')
-        return Decimal(self.initial_cash + incomes - expenses)
+        if self.expected_cash is not None and self.is_snapshot_sealed:
+            return self.expected_cash
+        return self.get_sales_audit_summary()['expected_cash']
 
     @property
     def total_expenses(self) -> Decimal:
@@ -181,11 +188,24 @@ class CashShift(models.Model):
         )
         total_abonos = abonos_cash + abonos_transfer + abonos_card + abonos_other
 
-        # Gastos / Salidas en Efectivo
-        cash_expenses = sum(
+        # Gastos / Salidas en Efectivo (Salidas reales de gaveta)
+        cash_movement_expenses = sum(
             (m.amount for m in self.cash_movements.filter(movement_type='EGRESO')),
             Decimal('0.00')
         )
+        # Respaldo de seguridad: si existe algún Expense en efectivo vinculado sin CashMovement
+        extra_shift_cash_exp = Decimal('0.00')
+        shift_cash_expenses = self.shift_expenses.filter(payment_method='EFECTIVO', is_paid=True)
+        if shift_cash_expenses.exists():
+            total_shift_exp = sum((e.amount for e in shift_cash_expenses), Decimal('0.00'))
+            mov_gasto_total = sum(
+                (m.amount for m in self.cash_movements.filter(movement_type='EGRESO', category='GASTO_CAJA')),
+                Decimal('0.00')
+            )
+            if total_shift_exp > mov_gasto_total:
+                extra_shift_cash_exp = total_shift_exp - mov_gasto_total
+
+        cash_expenses = cash_movement_expenses + extra_shift_cash_exp
 
         initial_cash = self.initial_cash or Decimal('0.00')
         expected_cash = initial_cash + cash_sales + abonos_cash - cash_expenses
@@ -424,6 +444,51 @@ class CashShift(models.Model):
                 'reference': ab.reference or 'N/A',
                 'user': ab.user.username if ab.user else 'Sistema',
             })
+        return detail
+
+    def get_expenses_detail(self):
+        """
+        Detalle de todos los gastos y salidas registradas en el turno.
+        Diferencia claramente los gastos pagados en EFECTIVO (que salen de la gaveta)
+        de los pagados por otros medios (transferencia/tarjeta).
+        """
+        detail = []
+
+        # 1. Gastos de la app Expense vinculados al turno
+        expenses = self.shift_expenses.select_related('category', 'user').order_by('-created_at')
+        for exp in expenses:
+            is_cash = (exp.payment_method == 'EFECTIVO')
+            detail.append({
+                'id': f"EXP-{exp.id}",
+                'category': exp.category.name,
+                'description': exp.description,
+                'amount': exp.amount,
+                'payment_method': exp.get_payment_method_display(),
+                'is_cash': is_cash,
+                'user': exp.user.username if exp.user else 'Sistema',
+                'created_at': exp.created_at,
+            })
+
+        # 2. Otros movimientos de egreso registrados directamente en la caja (devoluciones, otros egresos)
+        for m in self.cash_movements.filter(movement_type='EGRESO').select_related('user').order_by('-created_at'):
+            is_already_listed = False
+            for d in detail:
+                if d['is_cash'] and d['amount'] == m.amount and (m.description.endswith(d['description']) or d['description'] in m.description):
+                    is_already_listed = True
+                    break
+            if not is_already_listed:
+                detail.append({
+                    'id': f"MOV-{m.id}",
+                    'category': m.category.replace('_', ' ').title(),
+                    'description': m.description,
+                    'amount': m.amount,
+                    'payment_method': 'Efectivo (Gaveta)',
+                    'is_cash': True,
+                    'user': m.user.username if m.user else 'Sistema',
+                    'created_at': m.created_at,
+                })
+
+        detail.sort(key=lambda x: x['created_at'], reverse=True)
         return detail
 
     @property

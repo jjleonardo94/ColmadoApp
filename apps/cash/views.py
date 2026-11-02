@@ -17,6 +17,7 @@ from apps.cash.models import (
 from apps.cash.forms import OpenShiftForm
 from apps.cash.services import CashService
 from apps.core.models import BusinessSettings
+from apps.core.templatetags.core_tags import format_money
 
 class CashShiftListView(LoginRequiredMixin, ListView):
     model = CashShift
@@ -82,9 +83,28 @@ class OpenShiftView(LoginRequiredMixin, View):
             messages.info(request, f"Ya tiene una caja abierta (#{user_shift.id}) en '{branch_name}' ({user_shift.register.name}). Debe cerrarla antes de abrir una nueva.")
             return redirect('cash_shift_detail', pk=user_shift.pk)
 
-        form = OpenShiftForm()
+        # Buscar el último turno cerrado para sugerir el fondo dejado en gaveta (continuidad entre cajas)
         settings = BusinessSettings.get_settings()
-        return render(request, 'cash/open_shift.html', {'form': form, 'settings': settings})
+        active_branch_id = request.session.get('active_branch_id')
+        last_closed_qs = CashShift.objects.filter(status=CashShiftStatus.CERRADO, closed_at__isnull=False)
+        if active_branch_id:
+            last_closed_qs = last_closed_qs.filter(Q(branch_id=active_branch_id) | Q(branch__isnull=True))
+        last_closed_shift = last_closed_qs.order_by('-closed_at', '-id').first()
+
+        suggested_initial_cash = None
+        if last_closed_shift and last_closed_shift.cash_to_remain is not None:
+            suggested_initial_cash = last_closed_shift.cash_to_remain
+        elif settings.default_initial_cash:
+            suggested_initial_cash = settings.default_initial_cash
+        else:
+            suggested_initial_cash = Decimal('0.00')
+
+        form = OpenShiftForm(initial={'initial_cash': suggested_initial_cash})
+        return render(request, 'cash/open_shift.html', {
+            'form': form,
+            'settings': settings,
+            'last_closed_shift': last_closed_shift,
+        })
 
     def post(self, request):
         if not request.user.profile.check_permission('can_open_close_shifts'):
@@ -105,12 +125,21 @@ class OpenShiftView(LoginRequiredMixin, View):
                     initial_notes=initial_notes,
                     branch_id=active_branch_id,
                 )
-                messages.success(request, f"Caja #{shift.id} abierta exitosamente en '{register.name}' con fondo RD$ {initial_cash:,.2f}.")
-                return redirect('pos')
+                messages.success(request, f"Caja #{shift.id} abierta exitosamente en '{register.name}' con fondo RD$ {format_money(initial_cash)}.")
+                return redirect('cash_shift_list')
             except ValidationError as ex:
                 messages.error(request, str(ex.message if hasattr(ex, 'message') else ex))
         settings = BusinessSettings.get_settings()
-        return render(request, 'cash/open_shift.html', {'form': form, 'settings': settings})
+        active_branch_id = request.session.get('active_branch_id')
+        last_closed_qs = CashShift.objects.filter(status=CashShiftStatus.CERRADO, closed_at__isnull=False)
+        if active_branch_id:
+            last_closed_qs = last_closed_qs.filter(Q(branch_id=active_branch_id) | Q(branch__isnull=True))
+        last_closed_shift = last_closed_qs.order_by('-closed_at', '-id').first()
+        return render(request, 'cash/open_shift.html', {
+            'form': form,
+            'settings': settings,
+            'last_closed_shift': last_closed_shift,
+        })
 
 
 class CloseShiftView(LoginRequiredMixin, View):
@@ -149,6 +178,7 @@ class CloseShiftView(LoginRequiredMixin, View):
             'cash_operations_detail': shift.get_cash_operations_detail(),
             'card_operations_detail': shift.get_card_operations_detail(),
             'abonos_detail': shift.get_abonos_detail(),
+            'expenses_detail': shift.get_expenses_detail(),
         }
         return render(request, 'cash/close_shift.html', context)
 
@@ -222,4 +252,5 @@ class ShiftDetailView(LoginRequiredMixin, DetailView):
         ctx['cash_operations_detail'] = shift.get_cash_operations_detail()
         ctx['card_operations_detail'] = shift.get_card_operations_detail()
         ctx['abonos_detail'] = shift.get_abonos_detail()
+        ctx['expenses_detail'] = shift.get_expenses_detail()
         return ctx

@@ -292,7 +292,12 @@
 </div>
 
 <script>
+    const hasActiveShift = {{ has_active_shift|yesno:"true,false" }};
     function openAbonoModal() {
+        if (!hasActiveShift) {
+            showToast("Debes abrir una caja antes de registrar ventas o movimientos.", "warning");
+            return;
+        }
         document.getElementById('abonoModal').classList.remove('hidden');
         lucide.createIcons();
     }

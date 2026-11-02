@@ -11,6 +11,7 @@ from django.db.models import Q
 from apps.customers.models import Customer, CreditTransaction
 from apps.customers.forms import CustomerForm, AbonoPaymentForm
 from apps.customers.services import CustomerCreditService
+from apps.cash.models import CashShift, CashShiftStatus
 
 class CustomerListView(LoginRequiredMixin, ListView):
     model = Customer
@@ -58,6 +59,7 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         if clean_phone:
             encoded_msg = urllib.parse.quote(ctx['whatsapp_text'])
             ctx['whatsapp_direct_url'] = f"https://wa.me/{clean_phone}?text={encoded_msg}"
+        ctx['has_active_shift'] = CashShift.objects.filter(status=CashShiftStatus.ABIERTO).exists()
         return ctx
 
 

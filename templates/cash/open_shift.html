@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load core_tags %}
 
 {% block title %}Apertura de Turno de Caja{% endblock %}
 
@@ -23,6 +24,19 @@
         </div>
         {% endif %}
 
+        {% if last_closed_shift and last_closed_shift.cash_to_remain is not None %}
+        <div class="p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center justify-between shadow-2xs">
+            <div class="flex items-center gap-2">
+                <i data-lucide="history" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                <div>
+                    <span class="font-bold block text-emerald-950">Continuidad de Fondos: Cierre Anterior #{{ last_closed_shift.id }}</span>
+                    <span class="text-[11px] text-emerald-700">Fondo que se quedó en gaveta física al cerrar el {{ last_closed_shift.closed_at|date:"d/m/Y h:i A" }}</span>
+                </div>
+            </div>
+            <strong class="text-base font-black text-emerald-800 font-mono">RD$ {{ last_closed_shift.cash_to_remain|format_money }}</strong>
+        </div>
+        {% endif %}
+
         <div>
             <label class="block font-semibold text-slate-700 mb-1">Caja Física / Estación *</label>
             {{ form.register }}
@@ -31,7 +45,7 @@
         <div>
             <label class="block font-semibold text-slate-700 mb-1">Fondo Inicial de Gaveta (RD$) *</label>
             {{ form.initial_cash }}
-            <p class="text-[10px] text-slate-400 mt-1">Efectivo entregado al cajero para dar cambio / devuelta al inicio del turno.</p>
+            <p class="text-[10px] text-slate-400 mt-1">Efectivo disponible en la gaveta física para dar cambio o devuelta.</p>
         </div>
 
         <div>

@@ -49,6 +49,13 @@ class CashService:
         if not branch_obj:
             branch_obj = ColmadoBranch.get_default_branch()
 
+        # Buscar el turno cerrado anterior para trazabilidad y continuidad de fondos
+        prev_shift = CashShift.objects.filter(register=register, status=CashShiftStatus.CERRADO, closed_at__isnull=False).order_by('-closed_at', '-id').first()
+        if not prev_shift and branch_obj:
+            prev_shift = CashShift.objects.filter(branch=branch_obj, status=CashShiftStatus.CERRADO, closed_at__isnull=False).order_by('-closed_at', '-id').first()
+        if not prev_shift:
+            prev_shift = CashShift.objects.filter(status=CashShiftStatus.CERRADO, closed_at__isnull=False).order_by('-closed_at', '-id').first()
+
         shift = CashShift.objects.create(
             branch=branch_obj,
             register=register,
@@ -56,6 +63,7 @@ class CashService:
             initial_cash=initial_cash,
             status=CashShiftStatus.ABIERTO,
             initial_notes=initial_notes,
+            previous_shift=prev_shift,
         )
 
         # Movimiento de fondo inicial en caja

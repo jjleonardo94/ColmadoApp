@@ -59,22 +59,25 @@ class ExpenseCreateView(LoginRequiredMixin, View):
                 if active_branch_id:
                     expense.branch_id = active_branch_id
 
-                # Si se paga en efectivo y está pagado, vincular al turno de caja abierto
+                # Si se paga en efectivo y está pagado, vincular al turno de caja abierto (Validación obligatoria)
                 if expense.payment_method == ExpensePaymentMethod.EFECTIVO and expense.is_paid:
                     shift = CashShift.objects.filter(cashier=request.user, status=CashShiftStatus.ABIERTO).first()
                     if not shift:
                         shift = CashShift.objects.filter(status=CashShiftStatus.ABIERTO).first()
                     
-                    if shift:
-                        expense.cash_shift = shift
-                        CashMovement.objects.create(
-                            shift=shift,
-                            movement_type=CashMovementType.EGRESO,
-                            category='GASTO_CAJA',
-                            amount=expense.amount,
-                            description=f"Gasto: {expense.category.name} - {expense.description}",
-                            user=request.user,
-                        )
+                    if not shift:
+                        messages.error(request, "Debes abrir una caja antes de registrar ventas o movimientos.")
+                        return render(request, 'expenses/expense_form.html', {'form': form})
+
+                    expense.cash_shift = shift
+                    CashMovement.objects.create(
+                        shift=shift,
+                        movement_type=CashMovementType.EGRESO,
+                        category='GASTO_CAJA',
+                        amount=expense.amount,
+                        description=f"Gasto: {expense.category.name} - {expense.description}",
+                        user=request.user,
+                    )
 
                 expense.save()
 

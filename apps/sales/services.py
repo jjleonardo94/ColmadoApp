@@ -318,7 +318,7 @@ class SaleService:
         settings = BusinessSettings.get_settings()
         from apps.core.models import ColmadoBranch
         
-        # 1. Obtener turno de caja abierto
+        # 1. Obtener turno de caja abierto (Validación obligatoria)
         shift = None
         if cash_shift_id:
             shift = CashShift.objects.filter(id=cash_shift_id, status='ABIERTO').first()
@@ -326,6 +326,9 @@ class SaleService:
             shift = CashShift.objects.filter(cashier=cashier, status='ABIERTO').first()
         if not shift:
             shift = CashShift.objects.filter(status='ABIERTO').first()
+
+        if not shift:
+            raise ValidationError("Debes abrir una caja antes de registrar ventas o movimientos.")
 
         # Determinar Sucursal
         branch_obj = None
@@ -451,11 +454,14 @@ class SaleService:
                 has_fiado = True
                 fiado_amount += p_amount
 
-        # Validar cuadre de pagos vs total de la venta
-        if abs(total_payments_amount - sale_total) > Decimal('0.05'):
+        # Validar cuadre de pagos vs total de la venta (con tolerancia de centavos por redondeo de balanza / fracciones)
+        diff = abs(total_payments_amount - sale_total)
+        if diff > Decimal('0.50'):
             raise ValidationError(
                 f"El total pagado (RD$ {total_payments_amount:,.2f}) no coincide con el total de la venta (RD$ {sale_total:,.2f})."
             )
+        elif diff > Decimal('0.00'):
+            sale_total = total_payments_amount
 
         # Reglas para venta fiada
         if has_fiado:
@@ -624,7 +630,7 @@ class SaleService:
             settings = BusinessSettings.get_settings()
             branch = sale.branch
             colmado_name = branch.name if branch else settings.name
-            now_str = timezone.localtime(sale.created_at).strftime('%d/%m/%Y %I:%M %p')
+            now_str = timezone.localtime(sale.created_at).strftime('%d/%m/%Y')
 
             # 1. Generar la imagen visual exacta del ticket térmico
             rel_path = ReceiptImageGenerator.generate_receipt_image(sale)
@@ -814,6 +820,8 @@ class DeliveryService:
 
         # Formatear mensaje individual de WhatsApp con datos reales (incluyendo el monto de la compra)
         settings = BusinessSettings.get_settings()
+        from apps.core.models import ColmadoBranch
+        negocio_name = ColmadoBranch.get_business_name(sale=order.sale, customer=order.customer, user=user)
         default_tpl = "Hola *{cliente}*, su pedido ({ticket}) por un monto de *{total}* ya ha salido con {repartidor}. ¡Muchas gracias por su compra en {negocio}!"
         template = settings.delivery_notification_template or default_tpl
         if '{total}' not in template:
@@ -831,7 +839,7 @@ class DeliveryService:
                     .replace('{total}', total_str)
                     .replace('{repartidor}', repartidor_name)
                     .replace('{direccion}', address_str)
-                    .replace('{negocio}', settings.name)
+                    .replace('{negocio}', negocio_name)
         )
 
         dest_phone = None

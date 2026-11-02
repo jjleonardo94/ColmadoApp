@@ -478,6 +478,7 @@
 {% block extra_scripts %}
 <script>
     // --- ESTADO GLOBAL DEL POS ---
+    const hasActiveShift = {{ active_shift|yesno:"true,false" }};
     let cart = [];
     const USD_RATE = parseFloat('{{ settings.usd_rate|stringformat:".4f"|default:"59.50" }}');
     const EUR_RATE = parseFloat('{{ settings.eur_rate|stringformat:".4f"|default:"64.00" }}');
@@ -1191,6 +1192,10 @@
     }
 
     function openPaymentModal() {
+        if (!hasActiveShift) {
+            showToast("Debes abrir una caja antes de registrar ventas o movimientos.", "warning");
+            return;
+        }
         if (cart.length === 0) return;
         const total = getCartTotal();
         document.getElementById('modalTotalDOP').innerText = 'RD$ ' + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
@@ -1400,6 +1405,10 @@
 
     // --- ENVIAR TRANSACCIÓN ATÓMICA DE VENTA AL SERVIDOR ---
     function submitSaleTransaction() {
+        if (!hasActiveShift) {
+            showToast("Debes abrir una caja antes de registrar ventas o movimientos.", "warning");
+            return;
+        }
         if (isSubmitting) return;
         if (cart.length === 0) return;
 
@@ -1517,7 +1526,7 @@
                     searchInp.focus();
                 }
             } else {
-                showToast("Error al procesar la venta: " + data.error, "error");
+                showToast(data.error || "Error al procesar la venta.", "warning");
                 btnConfirm.disabled = false;
                 btnConfirm.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Confirmar Venta';
                 lucide.createIcons();
@@ -1539,9 +1548,17 @@
 
         if (e.key === 'F1') {
             e.preventDefault();
+            if (!hasActiveShift) {
+                showToast("Debes abrir una caja antes de registrar ventas o movimientos.", "warning");
+                return;
+            }
             if (cart.length > 0) openPaymentModal();
         } else if (e.key === 'F2') {
             e.preventDefault();
+            if (!hasActiveShift) {
+                showToast("Debes abrir una caja antes de registrar ventas o movimientos.", "warning");
+                return;
+            }
             if (cart.length > 0) {
                 openPaymentModal();
                 selectPaymentTab('FIADO');

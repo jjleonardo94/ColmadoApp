@@ -271,7 +271,21 @@ class DeliveryPersonListView(LoginRequiredMixin, ListView):
 
 class DeliveryPersonCreateView(LoginRequiredMixin, View):
     def post(self, request):
-        if not (request.user.is_superuser or request.user.profile.check_permission('can_manage_deliveries') or request.user.profile.check_permission('can_manage_settings')):
+        is_ajax = (
+            request.headers.get('x-requested-with') == 'XMLHttpRequest' or
+            request.content_type == 'application/json' or
+            request.POST.get('is_ajax') == '1'
+        )
+
+        has_perm = (
+            request.user.is_superuser or
+            request.user.profile.check_permission('can_manage_deliveries') or
+            request.user.profile.check_permission('can_manage_settings') or
+            request.user.profile.check_permission('can_create_sales')
+        )
+        if not has_perm:
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': "No tiene permisos para agregar repartidores."}, status=403)
             messages.error(request, "No tiene permisos para agregar repartidores.")
             return redirect('delivery_person_list')
 
@@ -282,8 +296,20 @@ class DeliveryPersonCreateView(LoginRequiredMixin, View):
             if active_branch_id:
                 dp.branch_id = active_branch_id
             dp.save()
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'id': dp.id,
+                    'name': dp.name,
+                    'phone': dp.phone or '',
+                    'vehicle': dp.vehicle or 'Motor',
+                    'message': f"Repartidor '{dp.name}' registrado exitosamente."
+                })
             messages.success(request, f"Repartidor '{dp.name}' registrado exitosamente.")
         else:
+            if is_ajax:
+                err_msg = "; ".join([f"{f}: {', '.join(errs)}" for f, errs in form.errors.items()])
+                return JsonResponse({'success': False, 'error': err_msg or "Error al registrar el repartidor."}, status=400)
             messages.error(request, "Error al registrar el repartidor. Verifique los campos.")
         return redirect('delivery_person_list')
 

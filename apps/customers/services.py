@@ -19,6 +19,7 @@ class CustomerCreditService:
         cash_shift_id: int = None,
         notes: str = '',
         reference: str = '',
+        branch=None,
         **kwargs
     ) -> CreditTransaction:
         """
@@ -46,6 +47,9 @@ class CustomerCreditService:
             shift = CashShift.objects.filter(cashier=user, status='ABIERTO').first()
         if not shift:
             shift = CashShift.objects.filter(status='ABIERTO').first()
+
+        if not shift:
+            raise ValidationError("Debes abrir una caja antes de registrar ventas o movimientos.")
 
         tx = CreditTransaction.objects.create(
             customer=customer,
@@ -78,7 +82,8 @@ class CustomerCreditService:
             details=f"Abono por RD$ {amount:,.2f} a {customer.name} vía {payment_method}. Saldo restante: RD$ {new_bal:,.2f}",
         )
 
-        # Enviar notificación automática por WhatsApp
+        # Enviar notificación automática por WhatsApp respetando la sucursal activa
+        target_branch = branch or kwargs.get('branch')
         cls.send_abono_whatsapp_notification(
             customer=customer,
             tx=tx,
@@ -86,6 +91,7 @@ class CustomerCreditService:
             previous_balance=current_bal,
             new_balance=new_bal,
             user=user,
+            branch=target_branch,
         )
 
         return tx
@@ -98,7 +104,8 @@ class CustomerCreditService:
         fiado_amount: Decimal,
         previous_balance: Decimal,
         current_balance: Decimal,
-        cashier=None
+        cashier=None,
+        branch=None,
     ):
         """
         Envía automáticamente un mensaje de WhatsApp al cliente detallando su compra fiada,
@@ -109,8 +116,9 @@ class CustomerCreditService:
 
         try:
             from apps.whatsapp.services import WhatsAppService
-            settings = BusinessSettings.get_settings()
-            now_str = timezone.localtime().strftime('%d/%m/%Y %I:%M %p')
+            from apps.core.models import ColmadoBranch
+            colmado_name = ColmadoBranch.get_business_name(branch=branch, sale=sale, customer=customer, user=cashier)
+            now_str = timezone.localtime().strftime('%d/%m/%Y')
 
             items_lines = []
             if sale and hasattr(sale, 'items'):
@@ -123,7 +131,7 @@ class CustomerCreditService:
             ticket_tag = f"Ticket #{sale.ticket_number}" if sale else "Comprobante de Fiado"
 
             msg = (
-                f"*{settings.name}*\n"
+                f"*{colmado_name}*\n"
                 f"*Comprobante de Fiado* - {ticket_tag}\n"
                 f"*Fecha:* {now_str}\n\n"
                 f"Hola *{customer.name}*, le confirmamos su compra a crédito registrada en su libreta:\n\n"
@@ -153,7 +161,8 @@ class CustomerCreditService:
         amount: Decimal,
         previous_balance: Decimal,
         new_balance: Decimal,
-        user=None
+        user=None,
+        branch=None,
     ):
         """
         Envía automáticamente un mensaje de WhatsApp al cliente informándole que se ha registrado
@@ -164,8 +173,9 @@ class CustomerCreditService:
 
         try:
             from apps.whatsapp.services import WhatsAppService
-            settings = BusinessSettings.get_settings()
-            now_str = timezone.localtime().strftime('%d/%m/%Y %I:%M %p')
+            from apps.core.models import ColmadoBranch
+            colmado_name = ColmadoBranch.get_business_name(branch=branch, customer=customer, user=user)
+            now_str = timezone.localtime().strftime('%d/%m/%Y')
 
             ref_text = f"Ref: {tx.reference}" if tx.reference else f"Comprobante #{tx.id}"
             
@@ -175,7 +185,7 @@ class CustomerCreditService:
                 estado_deuda = f"*Monto total pendiente que debe:* RD$ {new_balance:,.2f}"
 
             msg = (
-                f"*{settings.name}*\n"
+                f"*{colmado_name}*\n"
                 f"*Recibo de Abono a Cuenta* - {ref_text}\n"
                 f"*Fecha:* {now_str}\n\n"
                 f"Hola *{customer.name}*, hemos registrado su abono con éxito:\n\n"
@@ -198,11 +208,12 @@ class CustomerCreditService:
             return None
 
     @staticmethod
-    def generate_whatsapp_summary(customer: Customer) -> str:
+    def generate_whatsapp_summary(customer: Customer, branch=None) -> str:
         """
         Genera un mensaje respetuoso y claro para WhatsApp con el resumen de la cuenta del cliente.
         """
-        settings = BusinessSettings.get_settings()
+        from apps.core.models import ColmadoBranch
+        colmado_name = ColmadoBranch.get_business_name(branch=branch, customer=customer)
         balance = customer.current_balance
         last_payment = customer.credit_transactions.filter(transaction_type='ABONO_PAGO').order_by('-created_at').first()
         
@@ -211,7 +222,7 @@ class CustomerCreditService:
             last_payment_text = f"\n*Último abono registrado:* RD$ {last_payment.amount:,.2f} el {last_payment.created_at.strftime('%d/%m/%Y')}."
 
         msg = (
-            f"*Hola {customer.name}* le saluda *{settings.name}*.\n\n"
+            f"*Hola {customer.name}* le saluda *{colmado_name}*.\n\n"
             f"Le compartimos el resumen de su libreta a la fecha:\n"
             f"*Saldo pendiente:* RD$ {balance:,.2f}\n"
             f"*Límite de crédito disponible:* RD$ {customer.available_credit:,.2f}"
@@ -229,7 +240,9 @@ class CustomerCreditService:
         amount: Decimal,
         user,
         notes: str = '',
-        reference: str = ''
+        reference: str = '',
+        branch=None,
+        **kwargs
     ) -> CreditTransaction:
         """
         Registra un cargo a la deuda / fiado de un cliente en su libreta.
@@ -241,11 +254,24 @@ class CustomerCreditService:
         current_bal = customer.current_balance
         new_bal = current_bal + amount
 
+        shift = None
+        cash_shift_id = kwargs.get('cash_shift_id')
+        if cash_shift_id:
+            shift = CashShift.objects.filter(id=cash_shift_id, status='ABIERTO').first()
+        if not shift:
+            shift = CashShift.objects.filter(cashier=user, status='ABIERTO').first()
+        if not shift:
+            shift = CashShift.objects.filter(status='ABIERTO').first()
+
+        if not shift:
+            raise ValidationError("Debes abrir una caja antes de registrar ventas o movimientos.")
+
         tx = CreditTransaction.objects.create(
             customer=customer,
             transaction_type=CreditTransactionType.CARGO_FIADO,
             amount=amount,
             balance_after=new_bal,
+            cash_shift=shift,
             user=user,
             reference=reference,
             notes=notes or f"Fiado cargado a cuenta por RD$ {amount:,.2f}",
@@ -260,6 +286,7 @@ class CustomerCreditService:
         )
 
         # Enviar notificación automática por WhatsApp (sin íconos de IA)
+        target_branch = branch or kwargs.get('branch')
         cls.send_cargo_whatsapp_notification(
             customer=customer,
             tx=tx,
@@ -268,6 +295,7 @@ class CustomerCreditService:
             new_balance=new_bal,
             user=user,
             notes=notes,
+            branch=target_branch,
         )
 
         return tx
@@ -281,7 +309,8 @@ class CustomerCreditService:
         previous_balance: Decimal,
         new_balance: Decimal,
         user=None,
-        notes: str = ''
+        notes: str = '',
+        branch=None,
     ):
         """
         Envía automáticamente un mensaje de WhatsApp al cliente confirmando el nuevo cargo fiado.
@@ -291,13 +320,14 @@ class CustomerCreditService:
 
         try:
             from apps.whatsapp.services import WhatsAppService
-            settings = BusinessSettings.get_settings()
-            now_str = timezone.localtime().strftime('%d/%m/%Y %I:%M %p')
+            from apps.core.models import ColmadoBranch
+            colmado_name = ColmadoBranch.get_business_name(branch=branch, customer=customer, user=user)
+            now_str = timezone.localtime().strftime('%d/%m/%Y')
             ref_text = f"Ref: {tx.reference}" if tx.reference else f"Comprobante #{tx.id}"
             detalle = f"• *Concepto:* {notes}\n" if notes else ""
 
             msg = (
-                f"*{settings.name}*\n"
+                f"*{colmado_name}*\n"
                 f"*Comprobante de Fiado* - {ref_text}\n"
                 f"*Fecha:* {now_str}\n\n"
                 f"Hola *{customer.name}*, le confirmamos que se ha registrado un nuevo cargo a su libreta:\n\n"
