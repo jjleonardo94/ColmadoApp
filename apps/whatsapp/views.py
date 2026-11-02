@@ -27,6 +27,7 @@ from apps.customers.services import CustomerCreditService
 from apps.sales.models import DeliveryPerson, DeliveryOrder, DeliveryStatus
 from apps.sales.services import SaleService, DeliveryService
 from apps.catalog.models import Product
+from apps.cash.models import CashShift, CashShiftStatus
 from apps.core.models import BusinessSettings
 
 @method_decorator(csrf_exempt, name='dispatch')
