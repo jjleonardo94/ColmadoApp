@@ -1,7 +1,13 @@
 from django import forms
+from django.utils import timezone
 from apps.expenses.models import Expense, ExpenseCategory
 
 class ExpenseForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk and 'date' in self.fields:
+            self.fields['date'].initial = timezone.localdate()
+
     class Meta:
         model = Expense
         fields = ['date', 'category', 'description', 'amount', 'payment_method', 'is_paid', 'voucher_image']

@@ -18,7 +18,7 @@ class InventoryMovementListView(LoginRequiredMixin, ListView):
     paginate_by = 40
 
     def get_queryset(self):
-        qs = InventoryMovement.objects.select_related('product', 'user').all()
+        qs = InventoryMovement.objects.select_related('product', 'user').exclude(product__internal_code='PROD-GENERICO')
         m_type = self.request.GET.get('tipo')
         prod_q = self.request.GET.get('q')
         if m_type:

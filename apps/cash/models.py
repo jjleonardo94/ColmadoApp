@@ -189,8 +189,10 @@ class CashShift(models.Model):
         total_abonos = abonos_cash + abonos_transfer + abonos_card + abonos_other
 
         # Gastos / Salidas en Efectivo (Salidas reales de gaveta)
+        # Se excluye 'ANULACION_VENTA' porque la venta anulada ya fue excluida de cash_sales (status='COMPLETADA'),
+        # evitando así restar el monto dos veces.
         cash_movement_expenses = sum(
-            (m.amount for m in self.cash_movements.filter(movement_type='EGRESO')),
+            (m.amount for m in self.cash_movements.filter(movement_type='EGRESO').exclude(category='ANULACION_VENTA')),
             Decimal('0.00')
         )
         # Respaldo de seguridad: si existe algún Expense en efectivo vinculado sin CashMovement
@@ -469,8 +471,9 @@ class CashShift(models.Model):
                 'created_at': exp.created_at,
             })
 
-        # 2. Otros movimientos de egreso registrados directamente en la caja (devoluciones, otros egresos)
-        for m in self.cash_movements.filter(movement_type='EGRESO').select_related('user').order_by('-created_at'):
+        # 2. Otros movimientos de egreso registrados directamente en la caja (gastos menores directos de caja)
+        # Se excluye ANULACION_VENTA para que no se muestre como gasto operativo del negocio
+        for m in self.cash_movements.filter(movement_type='EGRESO').exclude(category='ANULACION_VENTA').select_related('user').order_by('-created_at'):
             is_already_listed = False
             for d in detail:
                 if d['is_cash'] and d['amount'] == m.amount and (m.description.endswith(d['description']) or d['description'] in m.description):

@@ -47,7 +47,11 @@ class PurchaseListView(LoginRequiredMixin, ListView):
 
 class PurchaseCreateView(LoginRequiredMixin, View):
     def get(self, request):
-        form = PurchaseForm()
+        form = PurchaseForm(initial={
+            'purchase_date': timezone.localdate(),
+            'tax': Decimal('0.00'),
+            'discount': Decimal('0.00')
+        })
         products = Product.objects.filter(is_active=True).order_by('name')
         return render(request, 'purchasing/purchase_form.html', {'form': form, 'products': products})
 

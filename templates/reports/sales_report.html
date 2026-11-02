@@ -402,7 +402,7 @@
                             <span class="text-slate-400 italic">Consumidor Final</span>
                             {% endif %}
                         </td>
-                        <td class="p-3.5 text-slate-600">{{ sale.cashier.username }}</td>
+                        <td class="p-3.5 text-slate-700 font-medium">{{ sale.cashier.get_full_name|default:sale.cashier.username }}</td>
                         <td class="p-3.5">
                             {% if sale.origin == 'WHATSAPP' %}
                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
@@ -446,7 +446,7 @@
                         </td>
                         <td class="p-3.5 text-center no-print">
                             <div class="flex items-center justify-center gap-1.5">
-                                <button type="button" onclick="showSaleDetailModal('{{ sale.ticket_number }}', '{{ sale.created_at|date:"d/m/Y h:i A" }}', '{{ sale.customer.name|default:"Consumidor Final"|escapejs }}', '{{ sale.total|floatformat:2 }}', '{{ sale.get_payment_method_display }}', '{{ sale.cashier.username }}', saleItems_{{ sale.id }})" class="p-1.5 text-slate-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors" title="Ver Artículos">
+                                <button type="button" onclick="showSaleDetailModal('{{ sale.ticket_number }}', '{{ sale.created_at|date:"d/m/Y h:i A" }}', '{{ sale.customer.name|default:"Consumidor Final"|escapejs }}', '{{ sale.total|floatformat:2 }}', '{{ sale.get_payment_method_display }}', '{{ sale.cashier.get_full_name|default:sale.cashier.username|escapejs }}', saleItems_{{ sale.id }})" class="p-1.5 text-slate-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors" title="Ver Artículos">
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
                                 <a href="{% url 'sale_receipt' sale.ticket_number %}" target="_blank" class="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors" title="Imprimir Ticket">

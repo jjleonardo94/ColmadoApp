@@ -32,6 +32,15 @@ class POSView(LoginRequiredMixin, View):
         if not active_shift:
             active_shift = shift_qs.first()
 
+        is_old_shift = False
+        shift_age_hours = 0
+        if active_shift:
+            from django.utils import timezone
+            age_td = timezone.now() - active_shift.opened_at
+            shift_age_hours = int(age_td.total_seconds() // 3600)
+            if age_td.total_seconds() > 24 * 3600 or active_shift.opened_at.date() < timezone.localdate():
+                is_old_shift = True
+
         categories = Category.objects.filter(is_active=True).prefetch_related('products')
         cust_qs = Customer.objects.filter(is_active=True)
         if active_branch_id:
@@ -44,6 +53,8 @@ class POSView(LoginRequiredMixin, View):
 
         context = {
             'active_shift': active_shift,
+            'is_old_shift': is_old_shift,
+            'shift_age_hours': shift_age_hours,
             'categories': categories,
             'customers': customers,
             'settings': settings,

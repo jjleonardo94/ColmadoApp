@@ -379,7 +379,7 @@ class SaleService:
                         'category': cat_gen,
                         'sale_price': custom_price,
                         'cost_price': Decimal('0.00'),
-                        'current_stock': Decimal('99999.000'),
+                        'current_stock': Decimal('0.000'),
                         'sale_type': SaleType.UNIT,
                         'unit_of_measure': UnitOfMeasure.UNIDAD,
                         'is_active': True,
@@ -545,15 +545,16 @@ class SaleService:
                 subtotal=item['subtotal'],
             )
 
-            # Descuento atómico de inventario
-            InventoryService.process_movement(
-                product_id=item['product'].id,
-                movement_type=MovementType.VENTA,
-                quantity=item['quantity'],
-                user=cashier,
-                reason=f"Venta en POS Ticket {ticket_num}",
-                reference_doc=ticket_num,
-            )
+            # Descuento atómico de inventario (solo para productos físicos de catálogo, no para servicios o ítems genéricos)
+            if item['product'].internal_code != 'PROD-GENERICO':
+                InventoryService.process_movement(
+                    product_id=item['product'].id,
+                    movement_type=MovementType.VENTA,
+                    quantity=item['quantity'],
+                    user=cashier,
+                    reason=f"Venta en POS Ticket {ticket_num}",
+                    reference_doc=ticket_num,
+                )
 
         # 8. Registrar pagos
         for p_data in payments_data:
@@ -683,16 +684,17 @@ class SaleService:
         if sale.status == SaleStatus.ANULADA:
             raise ValidationError("Esta venta ya se encuentra anulada.")
 
-        # Revertir inventario
+        # Revertir inventario (solo para productos físicos de catálogo)
         for item in sale.items.all():
-            InventoryService.process_movement(
-                product_id=item.product.id,
-                movement_type=MovementType.ANULACION_VENTA,
-                quantity=item.quantity,
-                user=user,
-                reason=f"Reingreso por anulación de ticket {sale.ticket_number}: {void_reason}",
-                reference_doc=sale.ticket_number,
-            )
+            if item.product.internal_code != 'PROD-GENERICO':
+                InventoryService.process_movement(
+                    product_id=item.product.id,
+                    movement_type=MovementType.ANULACION_VENTA,
+                    quantity=item.quantity,
+                    user=user,
+                    reason=f"Reingreso por anulación de ticket {sale.ticket_number}: {void_reason}",
+                    reference_doc=sale.ticket_number,
+                )
 
         # Revertir pagos en efectivo de caja
         cash_paid = sum(p.amount for p in sale.payments.filter(payment_method=PaymentMethodChoices.EFECTIVO))

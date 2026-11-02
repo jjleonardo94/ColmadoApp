@@ -361,11 +361,13 @@ class ExportSalesCSVView(LoginRequiredMixin, View):
             client_name = s.customer.name if s.customer else "Consumidor Final"
             tipo_op = "Crédito" if s.payment_method == PaymentMethodChoices.FIADO else "Contado"
             items_str = ", ".join([f"{it.quantity}x {it.product.name}" for it in s.items.all()])
+            cashier_name = s.cashier.get_full_name() or s.cashier.username
+            local_dt = timezone.localtime(s.created_at).strftime('%d/%m/%Y %I:%M %p')
             writer.writerow([
                 s.ticket_number,
-                s.created_at.strftime('%d/%m/%Y %H:%M'),
+                local_dt,
                 client_name,
-                s.cashier.username,
+                cashier_name,
                 s.get_origin_display() if hasattr(s, 'get_origin_display') else s.origin,
                 s.get_payment_method_display(),
                 tipo_op,
@@ -417,10 +419,12 @@ class ExportSalesExcelView(LoginRequiredMixin, View):
             client_name = s.customer.name if s.customer else "Consumidor Final"
             tipo_op = "Crédito" if s.payment_method == PaymentMethodChoices.FIADO else "Contado"
             items_str = ", ".join([f"{it.quantity}x {it.product.name}" for it in s.items.all()])
+            cashier_name = s.cashier.get_full_name() or s.cashier.username
+            local_dt = timezone.localtime(s.created_at).strftime('%d/%m/%Y %I:%M %p')
             worksheet.write(row_num, 0, s.ticket_number)
-            worksheet.write(row_num, 1, s.created_at.strftime('%d/%m/%Y %H:%M'))
+            worksheet.write(row_num, 1, local_dt)
             worksheet.write(row_num, 2, client_name)
-            worksheet.write(row_num, 3, s.cashier.username)
+            worksheet.write(row_num, 3, cashier_name)
             worksheet.write(row_num, 4, s.get_origin_display() if hasattr(s, 'get_origin_display') else s.origin)
             worksheet.write(row_num, 5, s.get_payment_method_display())
             worksheet.write(row_num, 6, tipo_op)

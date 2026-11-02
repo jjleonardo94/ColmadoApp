@@ -105,6 +105,117 @@ class Command(BaseCommand):
             encargado_user.profile.role = UserRole.ENCARGADO
             encargado_user.profile.save()
 
+        # 4b. Perfiles y Roles Personalizados del Sistema
+        from apps.accounts.models import CustomRole
+        role_admin, _ = CustomRole.objects.get_or_create(
+            name="Administrador / Dueño",
+            defaults={
+                'description': "Acceso completo a todos los módulos, finanzas, inventario, auditoría y configuraciones.",
+                'is_system_default': True,
+                'can_access_pos': True,
+                'can_apply_discounts': True,
+                'can_change_prices': True,
+                'can_void_sales': True,
+                'can_view_sales_history': True,
+                'can_access_credit': True,
+                'can_authorize_credit': True,
+                'can_record_abono': True,
+                'can_manage_customers': True,
+                'can_access_catalog': True,
+                'can_edit_products': True,
+                'can_adjust_inventory': True,
+                'can_access_purchases': True,
+                'can_open_close_shifts': True,
+                'can_view_cash_history': True,
+                'can_register_expenses': True,
+                'can_manage_cash_settings': True,
+                'can_authorize_cash_differences': True,
+                'can_view_reports': True,
+                'can_export_reports': True,
+                'can_view_audit_log': True,
+                'can_manage_whatsapp': True,
+                'can_manage_deliveries': True,
+                'can_manage_branches': True,
+                'can_manage_users': True,
+                'can_manage_settings': True,
+            }
+        )
+        role_encargado, _ = CustomRole.objects.get_or_create(
+            name="Encargado / Supervisor",
+            defaults={
+                'description': "Supervisión de operaciones del colmado, libreta de fiados, compras e inventario.",
+                'is_system_default': True,
+                'can_access_pos': True,
+                'can_apply_discounts': True,
+                'can_change_prices': False,
+                'can_void_sales': True,
+                'can_view_sales_history': True,
+                'can_access_credit': True,
+                'can_authorize_credit': True,
+                'can_record_abono': True,
+                'can_manage_customers': True,
+                'can_access_catalog': True,
+                'can_edit_products': True,
+                'can_adjust_inventory': True,
+                'can_access_purchases': True,
+                'can_open_close_shifts': True,
+                'can_view_cash_history': True,
+                'can_register_expenses': True,
+                'can_manage_cash_settings': False,
+                'can_authorize_cash_differences': True,
+                'can_view_reports': True,
+                'can_export_reports': True,
+                'can_view_audit_log': False,
+                'can_manage_whatsapp': True,
+                'can_manage_deliveries': True,
+                'can_manage_branches': False,
+                'can_manage_users': False,
+                'can_manage_settings': False,
+            }
+        )
+        role_cajero, _ = CustomRole.objects.get_or_create(
+            name="Cajero / Dependiente",
+            defaults={
+                'description': "Operación rápida de cobro en mostrador, libreta de fiados y cobro de abonos.",
+                'is_system_default': True,
+                'can_access_pos': True,
+                'can_apply_discounts': False,
+                'can_change_prices': False,
+                'can_void_sales': False,
+                'can_view_sales_history': True,
+                'can_access_credit': True,
+                'can_authorize_credit': False,
+                'can_record_abono': True,
+                'can_manage_customers': False,
+                'can_access_catalog': False,
+                'can_edit_products': False,
+                'can_adjust_inventory': False,
+                'can_access_purchases': False,
+                'can_open_close_shifts': True,
+                'can_view_cash_history': False,
+                'can_register_expenses': False,
+                'can_manage_cash_settings': False,
+                'can_authorize_cash_differences': False,
+                'can_view_reports': False,
+                'can_export_reports': False,
+                'can_view_audit_log': False,
+                'can_manage_whatsapp': True,
+                'can_manage_deliveries': True,
+                'can_manage_branches': False,
+                'can_manage_users': False,
+                'can_manage_settings': False,
+            }
+        )
+        if hasattr(admin_user, 'profile'):
+            admin_user.profile.custom_role = role_admin
+            admin_user.profile.save()
+        if hasattr(encargado_user, 'profile'):
+            encargado_user.profile.custom_role = role_encargado
+            encargado_user.profile.save()
+        if hasattr(cajero_user, 'profile'):
+            cajero_user.profile.custom_role = role_cajero
+            cajero_user.profile.save()
+
         self.stdout.write(self.style.SUCCESS("[OK] Usuarios de prueba creados (admin, cajero, encargado)"))
 
         # 5. Suplidores
@@ -349,22 +460,35 @@ class Command(BaseCommand):
         ]
 
         for p in products_data:
-            Product.objects.update_or_create(
-                internal_code=p['code'],
-                defaults={
-                    'name': p['name'],
-                    'barcode': p['barcode'],
-                    'category': p['category'],
-                    'unit_of_measure': p['unit'],
-                    'sale_type': p['sale_type'],
-                    'cost_price': p['cost'],
-                    'sale_price': p['price'],
-                    'current_stock': p['stock'],
-                    'min_stock': p['min'],
-                    'supplier': p.get('supplier'),
-                    'is_active': True,
-                }
-            )
+            existing_prod = Product.objects.filter(internal_code=p['code']).first()
+            if existing_prod:
+                existing_prod.name = p['name']
+                existing_prod.barcode = p['barcode']
+                existing_prod.category = p['category']
+                existing_prod.unit_of_measure = p['unit']
+                existing_prod.sale_type = p['sale_type']
+                existing_prod.cost_price = p['cost']
+                existing_prod.sale_price = p['price']
+                existing_prod.min_stock = p['min']
+                existing_prod.supplier = p.get('supplier')
+                existing_prod.is_active = True
+                # PRESERVAR STOCK REAL: No sobreescribir current_stock para evitar resetear inventario en cada deploy de Render
+                existing_prod.save()
+            else:
+                Product.objects.create(
+                    internal_code=p['code'],
+                    name=p['name'],
+                    barcode=p['barcode'],
+                    category=p['category'],
+                    unit_of_measure=p['unit'],
+                    sale_type=p['sale_type'],
+                    cost_price=p['cost'],
+                    sale_price=p['price'],
+                    current_stock=p['stock'],
+                    min_stock=p['min'],
+                    supplier=p.get('supplier'),
+                    is_active=True,
+                )
         self.stdout.write(self.style.SUCCESS(f"[OK] {len(products_data)} Productos de colmado dominicano creados"))
 
         # 7. Clientes de la Libreta de Fiados

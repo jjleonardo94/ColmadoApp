@@ -82,7 +82,7 @@
                                 <select name="product_id[]" required class="w-full px-2 py-1.5 border border-slate-300 rounded text-xs">
                                     <option value="">Seleccione producto...</option>
                                     {% for prod in products %}
-                                    <option value="{{ prod.id }}" data-cost="{{ prod.cost_price }}">{{ prod.name }} ({{ prod.internal_code }})</option>
+                                    <option value="{{ prod.id }}" data-cost="{{ prod.cost_price|stringformat:".2f" }}">{{ prod.name }} ({{ prod.internal_code }})</option>
                                     {% endfor %}
                                 </select>
                             </td>
@@ -104,8 +104,15 @@
             </div>
 
             <!-- Grand total preview -->
-            <div class="flex justify-end p-3 bg-slate-50 rounded-xl text-sm font-bold text-slate-800">
-                <span>Total Estimado de Mercancía: <span id="purchaseGrandTotal" class="text-orange-600 font-black">RD$ 0.00</span></span>
+            <div class="flex flex-col sm:flex-row items-end sm:items-center justify-between gap-3 p-3.5 bg-slate-50 rounded-xl text-xs sm:text-sm font-bold text-slate-700 border border-slate-200">
+                <div class="space-x-3 text-slate-500 font-medium">
+                    <span>Subtotal: <strong id="purchaseSubtotal" class="text-slate-800 font-bold">RD$ 0.00</strong></span>
+                    <span>+ ITBIS: <strong id="purchaseTaxPreview" class="text-slate-800 font-bold">RD$ 0.00</strong></span>
+                    <span>- Desc: <strong id="purchaseDiscountPreview" class="text-slate-800 font-bold">RD$ 0.00</strong></span>
+                </div>
+                <div>
+                    <span>Total Estimado Factura: <span id="purchaseGrandTotal" class="text-base sm:text-lg text-orange-600 font-black">RD$ 0.00</span></span>
+                </div>
             </div>
         </div>
 
@@ -129,33 +136,83 @@
             clone.querySelector('.p-qty').value = '1';
             clone.querySelector('.p-cost').value = '0.00';
             clone.querySelector('.p-sub').innerText = 'RD$ 0.00';
+            // Restablecer selección al primer item
+            const selectEl = clone.querySelector('select[name="product_id[]"]');
+            if (selectEl) {
+                selectEl.selectedIndex = 0;
+                const opt = selectEl.options[0];
+                if (opt && opt.dataset.cost) {
+                    const rawCost = String(opt.dataset.cost).replace(',', '.');
+                    clone.querySelector('.p-cost').value = parseFloat(rawCost || 0).toFixed(2);
+                }
+            }
             body.appendChild(clone);
             calculatePurchaseTotals();
         }
     }
 
     function calculatePurchaseTotals() {
-        let total = 0;
+        let subtotal = 0;
         document.querySelectorAll('#purchaseItemsBody tr').forEach(row => {
             const qty = parseFloat(row.querySelector('.p-qty')?.value) || 0;
             const cost = parseFloat(row.querySelector('.p-cost')?.value) || 0;
             const sub = qty * cost;
-            total += sub;
+            subtotal += sub;
             const subEl = row.querySelector('.p-sub');
             if (subEl) subEl.innerText = 'RD$ ' + sub.toFixed(2);
         });
-        document.getElementById('purchaseGrandTotal').innerText = 'RD$ ' + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
+
+        const tax = parseFloat(document.getElementById('id_tax')?.value) || 0;
+        const discount = parseFloat(document.getElementById('id_discount')?.value) || 0;
+        const grandTotal = Math.max(0, subtotal + tax - discount);
+
+        const subEl = document.getElementById('purchaseSubtotal');
+        if (subEl) subEl.innerText = 'RD$ ' + subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2});
+
+        const taxEl = document.getElementById('purchaseTaxPreview');
+        if (taxEl) taxEl.innerText = 'RD$ ' + tax.toLocaleString('es-DO', {minimumFractionDigits: 2});
+
+        const descEl = document.getElementById('purchaseDiscountPreview');
+        if (descEl) descEl.innerText = 'RD$ ' + discount.toLocaleString('es-DO', {minimumFractionDigits: 2});
+
+        const grandEl = document.getElementById('purchaseGrandTotal');
+        if (grandEl) grandEl.innerText = 'RD$ ' + grandTotal.toLocaleString('es-DO', {minimumFractionDigits: 2});
     }
+
+    document.addEventListener('input', (e) => {
+        if (e.target.id === 'id_tax' || e.target.id === 'id_discount') {
+            calculatePurchaseTotals();
+        }
+    });
 
     document.addEventListener('change', (e) => {
         if (e.target.name === 'product_id[]') {
             const opt = e.target.options[e.target.selectedIndex];
-            const costInput = e.target.closest('tr').querySelector('.p-cost');
+            const costInput = e.target.closest('tr')?.querySelector('.p-cost');
             if (opt && costInput && opt.dataset.cost) {
-                costInput.value = parseFloat(opt.dataset.cost).toFixed(2);
+                const rawCost = String(opt.dataset.cost).replace(',', '.');
+                costInput.value = parseFloat(rawCost || 0).toFixed(2);
                 calculatePurchaseTotals();
             }
         }
+    });
+
+    // Inicializar cálculos al cargar página
+    document.addEventListener('DOMContentLoaded', () => {
+        // Precargar costo del primer producto si está en 0
+        const firstRow = document.querySelector('#purchaseItemsBody tr');
+        if (firstRow) {
+            const selectEl = firstRow.querySelector('select[name="product_id[]"]');
+            const costInput = firstRow.querySelector('.p-cost');
+            if (selectEl && costInput && (!costInput.value || parseFloat(costInput.value) === 0)) {
+                const opt = selectEl.options[selectEl.selectedIndex];
+                if (opt && opt.dataset.cost) {
+                    const rawCost = String(opt.dataset.cost).replace(',', '.');
+                    costInput.value = parseFloat(rawCost || 0).toFixed(2);
+                }
+            }
+        }
+        calculatePurchaseTotals();
     });
 </script>
 {% endblock %}

@@ -105,6 +105,9 @@ class WAHAService:
             contact_id = info.get('id', '')
             if '@c.us' in contact_id:
                 return contact_id
+            num = str(info.get('number') or info.get('phoneNumber') or '')
+            if num and len(num) in (10, 11, 12) and not num.startswith(('12', '17')):
+                return f"{num}@c.us"
         return jid
 
     @classmethod
@@ -537,9 +540,21 @@ class WhatsAppService:
             # Determinar el número del contacto
             session_name = payload.get('session')
             target_jid = raw_to if from_me else raw_from
-            if '@lid' in target_jid:
-                target_jid = WAHAService.resolve_lid_to_phone(target_jid, session=session_name)
-            phone_raw = target_jid.split('@')[0] if '@' in target_jid else target_jid
+
+            # Intentar extraer JID telefónico alternativo directo del payload de WAHA
+            alt_jid = (
+                msg_data.get('remoteJidAlt') or
+                msg_data.get('_data', {}).get('remoteJidAlt') or
+                msg_data.get('_data', {}).get('key', {}).get('remoteJidAlt') or
+                msg_data.get('author') or
+                msg_data.get('_data', {}).get('author')
+            )
+            if alt_jid and '@c.us' in str(alt_jid) and not is_group:
+                target_jid = str(alt_jid)
+            elif '@lid' in str(target_jid) or (len(str(target_jid).split('@')[0]) >= 14 and '@c.us' not in str(target_jid)):
+                target_jid = WAHAService.resolve_lid_to_phone(str(target_jid), session=session_name)
+
+            phone_raw = str(target_jid).split('@')[0] if '@' in str(target_jid) else str(target_jid)
             normalized_phone = cls.normalize_phone(phone_raw)
 
             if not normalized_phone:
@@ -586,9 +601,12 @@ class WhatsAppService:
                 content = cls.sanitize_message_content(content)
 
             # 3. Buscar o crear Contacto con Jerarquía Profesional de Nombres
-            matched_customer = Customer.objects.filter(
-                phone__icontains=normalized_phone[-8:]
-            ).first()
+            is_lid_id = len(normalized_phone) >= 14 or '@lid' in str(raw_from or raw_to)
+            matched_customer = None
+            if not is_lid_id and len(normalized_phone) >= 8:
+                matched_customer = Customer.objects.filter(
+                    phone__icontains=normalized_phone[-8:]
+                ).first()
 
             # Consultar agenda telefónica en WAHA
             contact_info = WAHAService.get_contact_info(f"{normalized_phone}@c.us", session=session_name)

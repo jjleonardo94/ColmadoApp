@@ -42,10 +42,24 @@
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background-color: #94a3b8;
     }
+    #floatingDeliveryWrapper {
+        display: none !important;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+{% if active_shift and is_old_shift %}
+<div class="mb-3 bg-amber-500 text-white px-4 py-2.5 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs">
+    <div class="flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+        <span>Atención: El turno de caja actual fue abierto el {{ active_shift.opened_at|date:"d/m/Y h:i A" }} (hace más de 24 horas). Se recomienda realizar el arqueo y cierre de caja diario.</span>
+    </div>
+    <a href="{% url 'cash_shift_close' active_shift.id %}" class="bg-white text-amber-900 px-3 py-1 rounded-lg font-bold hover:bg-amber-50 transition shadow-2xs whitespace-nowrap ml-2">
+        Cerrar Caja
+    </a>
+</div>
+{% endif %}
 <div class="h-[calc(100vh-5rem)] flex flex-col lg:flex-row gap-4 max-w-[1600px] mx-auto overflow-hidden">
 
     <!-- LEFT COLUMN: PRODUCT SEARCH & CATALOG -->
@@ -479,6 +493,8 @@
 <script>
     // --- ESTADO GLOBAL DEL POS ---
     const hasActiveShift = {{ active_shift|yesno:"true,false" }};
+    const allowNegativeStock = {{ settings.allow_negative_stock|yesno:"true,false" }};
+    let currentCategoryId = '';
     let cart = [];
     const USD_RATE = parseFloat('{{ settings.usd_rate|stringformat:".4f"|default:"59.50" }}');
     const EUR_RATE = parseFloat('{{ settings.eur_rate|stringformat:".4f"|default:"64.00" }}');
@@ -886,6 +902,7 @@
 
     // --- CARGAR / FILTRAR PRODUCTOS ---
     function filterByCategory(catId) {
+        currentCategoryId = catId || '';
         document.querySelectorAll('.cat-filter-btn').forEach(btn => {
             btn.className = "cat-filter-btn px-3 py-1.5 rounded-lg font-medium whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors";
         });
@@ -996,19 +1013,27 @@
     }
 
     // --- CARRITO DE VENTAS ---
-    function addProductToCart(id, name, price, stock, saleType, unitLabel, allowsDec, customQty = null) {
-        const existing = cart.find(item => item.id === id);
+    function addProductToCart(id, name, price, stock, saleType, unitLabel, allowsDec, customQty = null, customDiscount = 0, forceNewLine = false) {
         const qtyToAdd = customQty !== null ? customQty : (allowsDec ? 1.0 : 1);
+        const existing = !forceNewLine ? cart.find(item => item.id === id) : null;
+        const currentQty = existing ? existing.quantity : 0;
+        const targetQty = Math.round((currentQty + qtyToAdd) * 1000) / 1000;
+
+        if (!allowNegativeStock && stock !== undefined && stock !== null && targetQty > stock) {
+            showToast(`⚠️ Stock insuficiente para "${name}". Disponible: ${stock}, en ticket: ${currentQty}`, 'warning');
+            return;
+        }
 
         if (existing) {
-            existing.quantity = Math.round((existing.quantity + qtyToAdd) * 1000) / 1000;
+            existing.quantity = targetQty;
+            existing.discount = Math.round((existing.discount + customDiscount) * 100) / 100;
         } else {
             cart.push({
                 id: id,
                 name: name,
                 unit_price: price,
                 quantity: qtyToAdd,
-                discount: 0,
+                discount: customDiscount,
                 stock: stock,
                 sale_type: saleType,
                 unit_label: unitLabel,
@@ -1028,7 +1053,12 @@
             if (!item.allows_decimals) {
                 newQty = Math.floor(newQty);
             }
-            item.quantity = Math.round(newQty * 1000) / 1000;
+            newQty = Math.round(newQty * 1000) / 1000;
+            if (!allowNegativeStock && item.stock !== undefined && item.stock !== null && newQty > item.stock) {
+                showToast(`⚠️ Stock insuficiente para "${item.name}". Solo quedan ${item.stock} disponibles.`, 'warning');
+                return;
+            }
+            item.quantity = newQty;
         }
         renderCart();
     }
@@ -1080,6 +1110,7 @@
 
         cart.forEach((item, index) => {
             const lineSub = item.quantity * item.unit_price;
+            const lineNet = lineSub - item.discount;
             subtotal += lineSub;
             discount += item.discount;
 
@@ -1102,7 +1133,8 @@
                 </div>
 
                 <div class="w-20 text-right shrink-0">
-                    <p class="font-bold text-slate-900">RD$ ${lineSub.toFixed(2)}</p>
+                    <p class="font-bold text-slate-900">RD$ ${lineNet.toFixed(2)}</p>
+                    ${item.discount > 0 ? `<p class="text-[10px] text-rose-600">-RD$ ${item.discount.toFixed(2)}</p>` : ''}
                     <button type="button" onclick="removeItem(${index})" class="text-[10px] text-rose-500 hover:underline">Eliminar</button>
                 </div>
             `;
@@ -1175,7 +1207,10 @@
         }
 
         const calculatedQty = Math.round((amount / price) * 1000) / 1000;
-        addProductToCart(pId, pName, price, stock, 'FRACTION', unit, true, calculatedQty);
+        const lineGross = Math.round(calculatedQty * price * 100) / 100;
+        // Ajuste exacto de centavos por redondeo para que el total cobrado coincida exactamente con lo pedido
+        const roundAdjustment = Math.max(0, Math.round((lineGross - amount) * 100) / 100);
+        addProductToCart(pId, `${pName} (Por RD$ ${amount.toFixed(0)})`, price, stock, 'FRACTION', unit, true, calculatedQty, roundAdjustment, true);
         closeAmountSaleModal();
     }
 
@@ -1191,6 +1226,21 @@
         }
     }
 
+    function resetSplitPayment() {
+        const chk = document.getElementById('splitPaymentCheckbox');
+        if (chk) chk.checked = false;
+        const cont = document.getElementById('splitPaymentContainer');
+        if (cont) cont.classList.add('hidden');
+        ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA'].forEach(m => {
+            const el = document.getElementById('split-' + m);
+            if (el) el.value = '';
+        });
+        const assignedEl = document.getElementById('splitAssigned');
+        if (assignedEl) assignedEl.innerText = 'RD$ 0.00';
+        const remEl = document.getElementById('splitRemaining');
+        if (remEl) remEl.innerText = 'RD$ 0.00';
+    }
+
     function openPaymentModal() {
         if (!hasActiveShift) {
             showToast("Debes abrir una caja antes de registrar ventas o movimientos.", "warning");
@@ -1199,6 +1249,7 @@
         if (cart.length === 0) return;
         const total = getCartTotal();
         document.getElementById('modalTotalDOP').innerText = 'RD$ ' + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        resetSplitPayment();
         document.getElementById('paymentModal').classList.remove('hidden');
         selectPaymentTab(currentPayTab);
 
@@ -1209,6 +1260,7 @@
 
     function closePaymentModal() {
         document.getElementById('paymentModal').classList.add('hidden');
+        resetSplitPayment();
     }
 
     function selectPaymentTab(tabName) {
@@ -1228,7 +1280,7 @@
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Moneda Recibida</label>
-                            <select id="cashCurrencySelect" onchange="calculateCashChange()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:outline-none focus:border-orange-500">
+                            <select id="cashCurrencySelect" onchange="onCashCurrencyChanged()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:outline-none focus:border-orange-500">
                                 <option value="DOP">Pesos Dominicanos (RD$)</option>
                                 <option value="USD">Dólares (US$ a tasa ${USD_RATE.toFixed(2)})</option>
                                 <option value="EUR">Euros (€ a tasa ${EUR_RATE.toFixed(2)})</option>
@@ -1241,20 +1293,14 @@
                         </div>
                     </div>
 
-                    <!-- Billetes Rápidos RD$ (Denominaciones de Colmado) -->
+                    <!-- Billetes Rápidos Dinámicos según la Moneda -->
                     <div>
                         <div class="flex items-center justify-between mb-1">
-                            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Billetes Rápidos RD$</span>
+                            <span id="quickCashHeaderTitle" class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Billetes Rápidos RD$</span>
                             <span class="text-[10px] text-slate-400">Clic para fijar monto</span>
                         </div>
-                        <div class="grid grid-cols-4 sm:grid-cols-7 gap-1.5 text-xs font-bold">
-                            <button type="button" onclick="setCashReceived(${total})" class="py-1.5 px-1 bg-orange-100 text-orange-800 hover:bg-orange-200 rounded-lg text-center transition">Exacto</button>
-                            <button type="button" onclick="setCashReceived(50)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">50</button>
-                            <button type="button" onclick="setCashReceived(100)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">100</button>
-                            <button type="button" onclick="setCashReceived(200)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">200</button>
-                            <button type="button" onclick="setCashReceived(500)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">500</button>
-                            <button type="button" onclick="setCashReceived(1000)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">1,000</button>
-                            <button type="button" onclick="setCashReceived(2000)" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition">2,000</button>
+                        <div id="quickCashButtonsGrid" class="grid grid-cols-4 sm:grid-cols-7 gap-1.5 text-xs font-bold">
+                            <!-- Inyectado dinámicamente -->
                         </div>
                     </div>
 
@@ -1264,6 +1310,7 @@
                     </div>
                 </div>
             `;
+            renderQuickCashButtons('DOP');
             calculateCashChange();
         } else if (tabName === 'TARJETA') {
             content.innerHTML = `
@@ -1359,6 +1406,47 @@
         }
     }
 
+    function onCashCurrencyChanged() {
+        const curr = document.getElementById('cashCurrencySelect')?.value || 'DOP';
+        const total = getCartTotal();
+        let exactVal = total;
+        if (curr === 'USD') exactVal = Math.round((total / USD_RATE) * 100) / 100;
+        if (curr === 'EUR') exactVal = Math.round((total / EUR_RATE) * 100) / 100;
+        const inp = document.getElementById('cashReceivedInput');
+        if (inp) inp.value = exactVal;
+        renderQuickCashButtons(curr);
+        calculateCashChange();
+    }
+
+    function renderQuickCashButtons(curr) {
+        const total = getCartTotal();
+        const grid = document.getElementById('quickCashButtonsGrid');
+        const title = document.getElementById('quickCashHeaderTitle');
+        if (!grid) return;
+
+        let exactVal = total;
+        let bills = [];
+
+        if (curr === 'DOP') {
+            exactVal = total;
+            bills = [50, 100, 200, 500, 1000, 2000];
+            if (title) title.innerText = "Billetes Rápidos RD$";
+        } else if (curr === 'USD') {
+            exactVal = Math.round((total / USD_RATE) * 100) / 100;
+            bills = [1, 5, 10, 20, 50, 100];
+            if (title) title.innerText = `Billetes Rápidos US$ (Tasa: ${USD_RATE.toFixed(2)})`;
+        } else if (curr === 'EUR') {
+            exactVal = Math.round((total / EUR_RATE) * 100) / 100;
+            bills = [5, 10, 20, 50, 100];
+            if (title) title.innerText = `Billetes Rápidos € (Tasa: ${EUR_RATE.toFixed(2)})`;
+        }
+
+        grid.innerHTML = `
+            <button type="button" onclick="setCashReceived(${exactVal})" class="py-1.5 px-1 bg-orange-100 text-orange-800 hover:bg-orange-200 rounded-lg text-center transition font-bold">Exacto</button>
+            ${bills.map(b => `<button type="button" onclick="setCashReceived(${b})" class="py-1.5 px-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-center transition font-bold">${b}</button>`).join('')}
+        `;
+    }
+
     function setCashReceived(amt) {
         const inp = document.getElementById('cashReceivedInput');
         if (inp) {
@@ -1427,15 +1515,28 @@
         let paymentsPayload = [];
 
         if (splitEnabled) {
+            let assignedTotal = 0;
             ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA'].forEach(m => {
                 const el = document.getElementById('split-' + m);
                 if (el) {
                     const amt = parseFloat(el.value) || 0;
-                    if (amt > 0) paymentsPayload.push({ method: m, amount: amt });
+                    if (amt > 0) {
+                        paymentsPayload.push({ method: m, amount: amt });
+                        assignedTotal += amt;
+                    }
                 }
             });
             if (paymentsPayload.length === 0) {
                 showToast('Asigne al menos un monto de pago en el desglose.', 'warning');
+                return;
+            }
+            if (Math.abs(assignedTotal - total) > 0.01) {
+                const diff = total - assignedTotal;
+                if (diff > 0) {
+                    showToast(`⚠️ El monto asignado (RD$ ${assignedTotal.toFixed(2)}) no cubre el total (RD$ ${total.toFixed(2)}). Faltan RD$ ${diff.toFixed(2)}.`, 'warning');
+                } else {
+                    showToast(`⚠️ El monto asignado (RD$ ${assignedTotal.toFixed(2)}) supera el total de la venta (RD$ ${total.toFixed(2)}).`, 'warning');
+                }
                 return;
             }
         } else {
@@ -1525,6 +1626,8 @@
                     searchInp.value = '';
                     searchInp.focus();
                 }
+                // Refrescar catálogo para actualizar el stock visible inmediatamente sin recargar la página
+                fetchProducts('', currentCategoryId || '');
             } else {
                 showToast(data.error || "Error al procesar la venta.", "warning");
                 btnConfirm.disabled = false;

@@ -74,6 +74,24 @@ class AuditLog(models.Model):
         verbose_name_plural = 'Bitácoras de Auditoría'
         ordering = ['-created_at']
 
+    @classmethod
+    def log(cls, request=None, user=None, action='', target_model='', target_id='', details=''):
+        from apps.core.utils import get_client_ip
+        actual_user = user
+        actual_ip = None
+        if request:
+            if not actual_user and hasattr(request, 'user') and request.user.is_authenticated:
+                actual_user = request.user
+            actual_ip = get_client_ip(request)
+        return cls.objects.create(
+            user=actual_user,
+            action=action,
+            target_model=target_model,
+            target_id=str(target_id) if target_id else '',
+            details=details,
+            ip_address=actual_ip
+        )
+
     def __str__(self):
         user_name = self.user.username if self.user else 'Sistema'
         return f"{self.created_at.strftime('%Y-%m-%d %H:%M')} | {user_name} | {self.action}"

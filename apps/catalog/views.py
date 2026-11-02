@@ -16,7 +16,7 @@ class ProductListView(LoginRequiredMixin, ListView):
     paginate_by = 30
 
     def get_queryset(self):
-        qs = Product.objects.select_related('category', 'supplier').all()
+        qs = Product.objects.select_related('category', 'supplier').exclude(internal_code='PROD-GENERICO')
         q = self.request.GET.get('q', '').strip()
         cat = self.request.GET.get('categoria')
         stock_filter = self.request.GET.get('stock')

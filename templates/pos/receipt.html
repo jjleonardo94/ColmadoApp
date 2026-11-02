@@ -1,3 +1,4 @@
+{% load humanize %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,7 +8,7 @@
     <!-- Google Fonts: Space Mono for receipt typography -->
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
     <style>
         body {
             background-color: #f1f5f9;
@@ -116,9 +117,9 @@
             <div class="divide-y divide-dotted divide-slate-200 py-1 space-y-1">
                 {% for item in sale.items.all %}
                 <div class="pt-1">
-                    <div class="flex justify-between">
-                        <span class="font-bold">{{ item.product.name }}</span>
-                        <span>RD$ {{ item.subtotal|floatformat:2 }}</span>
+                    <div class="flex justify-between gap-1 items-start">
+                        <span class="font-bold min-w-0 break-words flex-1 pr-1">{{ item.product.name }}</span>
+                        <span class="shrink-0 text-right whitespace-nowrap">RD$ {{ item.subtotal|floatformat:2|intcomma }}</span>
                     </div>
                     <div class="text-[10px] text-slate-500 flex justify-between">
                         <span>{{ item.quantity|floatformat:2 }} x RD$ {{ item.unit_price|floatformat:2 }}</span>
@@ -143,9 +144,9 @@
                 <span>-RD$ {{ sale.discount|floatformat:2 }}</span>
             </div>
             {% endif %}
-            <div class="flex justify-between font-bold text-sm pt-1 border-t border-slate-300">
-                <span>TOTAL A PAGAR:</span>
-                <span>RD$ {{ sale.total|floatformat:2 }}</span>
+            <div class="flex justify-between gap-1 font-bold text-sm pt-1 border-t border-slate-300">
+                <span class="shrink-0">TOTAL A PAGAR:</span>
+                <span class="shrink-0 text-right whitespace-nowrap">RD$ {{ sale.total|floatformat:2|intcomma }}</span>
             </div>
         </div>
 

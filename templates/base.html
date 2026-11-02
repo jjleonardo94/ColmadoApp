@@ -32,9 +32,9 @@
         }
     </script>
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -194,7 +194,7 @@
             </div>
 
             <!-- Navigation Links -->
-            <nav class="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
+            <nav class="p-3 pb-16 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
                 <a href="{% url 'dashboard' %}" title="Panel" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {% if request.resolver_match.url_name == 'dashboard' %}bg-orange-50 text-orange-700 font-semibold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
                     <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
                     <span class="sidebar-text">Panel</span>
@@ -469,7 +469,7 @@
 
     <!-- BOTÓN FLOTANTE DELIVERY EXPRESS (ARRASTRABLE Y REPOSICIONABLE) -->
     {% if user.is_authenticated %}
-    <div id="floatingDeliveryWrapper" style="position: fixed; bottom: 110px; right: 24px; z-index: 45;" class="no-print select-none touch-none">
+    <div id="floatingDeliveryWrapper" style="position: fixed; bottom: 110px; right: 24px; z-index: 45; {% if request.resolver_match.url_name == 'pos' %}display: none !important;{% endif %}" class="no-print select-none touch-none">
         <button type="button" id="floatingDeliveryBtn" title="Delivery Express (Clic para abrir / Mantén presionado para mover)" class="relative w-14 h-14 rounded-full shadow-2xl hover:shadow-amber-500/40 transition-shadow flex items-center justify-center p-0 cursor-grab active:cursor-grabbing border-2 border-white hover:scale-105 active:scale-95 transition-transform bg-amber-500 overflow-visible focus:outline-none group">
             <img src="{% static 'img/delivery_logo.png' %}?v=2" alt="Delivery Express" class="w-full h-full object-cover pointer-events-none select-none rounded-full" />
             <span id="floatingDeliveryBadge" class="hidden absolute -top-1 -right-1 px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-xs shadow-md border-2 border-white animate-pulse z-50">0</span>
@@ -1126,7 +1126,7 @@
                             </div>
                             <div class="flex items-center gap-1.5 text-[11px]">
                                 <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-500 shrink-0"></i>
-                                <span class="truncate">${o.delivery_address}</span>
+                                <span class="truncate">${o.delivery_address || '<span class="italic text-rose-500 font-semibold">Sin dirección registrada</span>'}</span>
                             </div>
                         </div>
 

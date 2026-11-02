@@ -32,9 +32,14 @@ class CustomerCreditService:
         customer = Customer.objects.select_for_update().get(pk=customer_id)
         current_bal = customer.current_balance
         
-        # Validación de abono: no permitir abonos mayores a la deuda pendiente salvo sobrepago explícito
+        # Validación de abono: no permitir abonos a clientes sin deuda ni montos superiores a la deuda pendiente
+        if current_bal <= Decimal('0.00'):
+            raise ValidationError(
+                f"El cliente '{customer.name}' se encuentra al día y no posee deuda pendiente para abonar."
+            )
+
         allow_overpayment = kwargs.get('allow_overpayment', False)
-        if not allow_overpayment and current_bal > Decimal('0.00') and amount > current_bal:
+        if not allow_overpayment and amount > current_bal:
             raise ValidationError(
                 f"El monto del abono (RD$ {amount:,.2f}) no puede ser superior al saldo pendiente actual (RD$ {current_bal:,.2f})."
             )
@@ -361,14 +366,21 @@ class CustomerCreditService:
             return contact.customer
 
         branch = ColmadoBranch.get_default_branch()
+        raw_digits = ''.join(c for c in str(contact.phone) if c.isdigit())
+        is_lid = len(raw_digits) >= 14
+
         name = contact.display_name.strip() if contact.display_name else ''
         if not name or name.startswith('Contacto '):
-            name = f"Cliente {contact.phone[-8:]}"
+            name = "Cliente WhatsApp" if is_lid else f"Cliente {contact.phone[-8:]}"
+
+        saved_phone = '' if is_lid else contact.phone
+        notes = f"WhatsApp LID: {contact.phone}" if is_lid else ''
 
         customer = Customer.objects.create(
             branch=branch,
             name=name,
-            phone=contact.phone,
+            phone=saved_phone,
+            notes=notes,
             credit_limit=Decimal('3000.00'),
             is_active=True
         )
@@ -410,19 +422,28 @@ class CustomerCreditService:
         contact = WhatsAppContact.objects.select_for_update().get(pk=contact_id)
         raw_phone = (phone or contact.phone or '').strip()
         clean_phone = re.sub(r'[^\d+]', '', raw_phone)
-        if clean_phone.startswith('00'):
-            clean_phone = '+' + clean_phone[2:]
-        elif not clean_phone.startswith('+'):
-            if len(clean_phone) == 10:
-                clean_phone = '+1' + clean_phone
-            elif len(clean_phone) == 11 and clean_phone.startswith('1'):
-                clean_phone = '+' + clean_phone
+        digits_only = re.sub(r'\D', '', clean_phone)
+        is_lid = len(digits_only) >= 14
+
+        if is_lid:
+            valid_phone = ''
+            lid_note = f"WhatsApp LID: {digits_only}"
+            notes = f"{notes}\n{lid_note}".strip() if notes.strip() else lid_note
+        else:
+            if clean_phone.startswith('00'):
+                clean_phone = '+' + clean_phone[2:]
+            elif not clean_phone.startswith('+'):
+                if len(clean_phone) == 10:
+                    clean_phone = '+1' + clean_phone
+                elif len(clean_phone) == 11 and clean_phone.startswith('1'):
+                    clean_phone = '+' + clean_phone
+            valid_phone = clean_phone
 
         # Buscar cliente existente para evitar duplicados
         existing_customer = None
-        if clean_phone:
+        if valid_phone:
             # Buscar coincidencia por teléfono normalizado o terminación de 10 dígitos
-            phone_suffix = clean_phone[-10:] if len(clean_phone) >= 10 else clean_phone
+            phone_suffix = valid_phone[-10:] if len(valid_phone) >= 10 else valid_phone
             existing_customer = Customer.objects.filter(phone__icontains=phone_suffix).first()
 
         if not existing_customer and name.strip():
@@ -437,8 +458,8 @@ class CustomerCreditService:
             if name.strip() and customer.name != name.strip():
                 customer.name = name.strip()
                 updated_fields.append('name')
-            if clean_phone and not customer.phone:
-                customer.phone = clean_phone
+            if valid_phone and not customer.phone:
+                customer.phone = valid_phone
                 updated_fields.append('phone')
             if alias.strip() and not customer.alias:
                 customer.alias = alias.strip()
@@ -452,10 +473,11 @@ class CustomerCreditService:
             if updated_fields:
                 customer.save(update_fields=updated_fields)
         else:
+            default_display_name = name.strip() or ("Cliente WhatsApp" if is_lid else f"Cliente {valid_phone[-8:]}")
             customer = Customer.objects.create(
                 branch=branch,
-                name=name.strip() or f"Cliente {clean_phone[-8:]}",
-                phone=clean_phone,
+                name=default_display_name,
+                phone=valid_phone,
                 alias=alias.strip(),
                 address=address.strip(),
                 notes=notes.strip(),

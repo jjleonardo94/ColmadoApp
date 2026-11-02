@@ -158,7 +158,7 @@ class CloseShiftView(LoginRequiredMixin, View):
         movements = shift.cash_movements.all()
 
         incomes = sum(m.amount for m in movements if m.movement_type == 'INGRESO' and m.category != 'FONDO_INICIAL')
-        expenses = sum(m.amount for m in movements if m.movement_type == 'EGRESO')
+        expenses = sum(m.amount for m in movements if m.movement_type == 'EGRESO' and m.category != 'ANULACION_VENTA')
 
         audit_summary = shift.get_sales_audit_summary()
         settings = BusinessSettings.get_settings()

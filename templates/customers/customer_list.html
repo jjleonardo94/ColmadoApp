@@ -85,9 +85,9 @@
                         <td class="p-3.5 text-right font-medium text-slate-600">RD$ {{ c.available_credit|floatformat:2|intcomma }}</td>
                         <td class="p-3.5 text-center">
                             {% if c.current_balance > 0 %}
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Deuda Activa</span>
+                            <span class="inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Deuda Activa</span>
                             {% else %}
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Al Día</span>
+                            <span class="inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Al Día</span>
                             {% endif %}
                         </td>
                         <td class="p-3.5 text-center">
