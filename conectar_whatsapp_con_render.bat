@@ -12,7 +12,7 @@ docker compose -f docker-compose.waha.yml up -d
 echo.
 echo 2. Iniciando tunel seguro Cloudflare hacia tu PC...
 echo    Copia la direccion https://...trycloudflare.com que aparecera debajo
-echo    y colocala en la variable WAHA_API_URL en Render.
+echo    y pegala directamente en https://colmadopos.onrender.com/whatsapp/configuracion/
 echo.
 echo ======================================================================
 echo  [Deja esta ventana abierta para que Render pueda enviar WhatsApp]

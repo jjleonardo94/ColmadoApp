@@ -592,6 +592,7 @@ class WhatsAppConfigView(LoginRequiredMixin, View):
         webhook_url = f"{request.scheme}://{host}/whatsapp/webhook/"
 
         # Estado WAHA
+        b_settings = BusinessSettings.get_settings()
         waha_url = WAHAService.get_api_url()
         waha_session = WAHAService.get_session()
         waha_health = WAHAService.check_health()
@@ -605,10 +606,27 @@ class WhatsAppConfigView(LoginRequiredMixin, View):
             'verify_token': verify_token,
             'has_credentials': bool(phone_id and token),
             'waha_url': waha_url,
+            'waha_saved_url': b_settings.waha_api_url if b_settings else '',
             'waha_session': waha_session,
             'waha_health': waha_health,
             'waha_simulate_typing': waha_simulate_typing,
         })
+
+    def post(self, request):
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.check_permission('can_manage_settings'))):
+            messages.error(request, "No tiene permisos para modificar la configuración.")
+            return redirect('whatsapp_config')
+
+        new_url = request.POST.get('waha_api_url', '').strip()
+        b_settings = BusinessSettings.get_settings()
+        b_settings.waha_api_url = new_url
+        b_settings.save(update_fields=['waha_api_url'])
+
+        if new_url:
+            messages.success(request, f"URL de conexión WAHA guardada: {new_url}")
+        else:
+            messages.info(request, "Se ha restablecido la URL de WAHA al valor por defecto del sistema.")
+        return redirect('whatsapp_config')
 
 
 class WAHAStatusAjaxView(LoginRequiredMixin, View):

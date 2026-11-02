@@ -39,6 +39,13 @@ class WAHAService:
 
     @classmethod
     def get_api_url(cls) -> str:
+        try:
+            from apps.core.models import BusinessSettings
+            s = BusinessSettings.get_settings()
+            if s and s.waha_api_url and s.waha_api_url.strip():
+                return s.waha_api_url.strip().rstrip('/')
+        except Exception:
+            pass
         url = getattr(settings, 'WAHA_API_URL', 'http://localhost:3000') or 'http://localhost:3000'
         return url.rstrip('/')
 

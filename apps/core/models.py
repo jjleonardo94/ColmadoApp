@@ -35,6 +35,15 @@ class BusinessSettings(models.Model):
         blank=True,
         default="Hola {cliente}, tu pedido #{ticket} ya está preparado y ha salido para entrega{delivery_info}. Total: RD$ {total} ({metodo_pago}). ¡Gracias por preferirnos!"
     )
+
+    # URL del Servidor WAHA (para conexión local o puente en la nube)
+    waha_api_url = models.CharField(
+        'URL del Servidor WAHA (WhatsApp API)',
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='URL de WAHA (ej. https://...trycloudflare.com o http://localhost:3000)'
+    )
     
     updated_at = models.DateTimeField('Última Actualización', auto_now=True)
 

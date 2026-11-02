@@ -93,6 +93,65 @@
     {% endif %}
   </div>
 
+  <!-- Configuración de URL del Servidor WAHA (Enlace Render - Local) -->
+  <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-700">
+          <i data-lucide="link" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h2 class="text-sm font-bold text-slate-900 tracking-tight">URL del Servidor WAHA (WhatsApp API)</h2>
+          <p class="text-xs text-slate-500">Dirección a la cual el servidor enviará los mensajes salientes y consultará estados</p>
+        </div>
+      </div>
+      <span class="text-xs px-2.5 py-1 rounded-full font-mono font-medium {% if waha_saved_url %}bg-sky-50 text-sky-700 border border-sky-200{% else %}bg-slate-100 text-slate-600{% endif %}">
+        {% if waha_saved_url %}Personalizada{% else %}Por Defecto{% endif %}
+      </span>
+    </div>
+
+    <form method="post" action="{% url 'whatsapp_config' %}" class="space-y-3">
+      {% csrf_token %}
+      <div>
+        <label for="waha_api_url" class="block text-xs font-semibold text-slate-700 mb-1">
+          URL de la API WAHA
+        </label>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <input 
+            type="text" 
+            name="waha_api_url" 
+            id="waha_api_url" 
+            value="{{ waha_saved_url }}" 
+            placeholder="ej: https://subdominio.trycloudflare.com o http://localhost:3000"
+            class="flex-1 px-3.5 py-2.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition"
+          >
+          <button type="submit" class="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition shadow-sm whitespace-nowrap">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            Guardar URL
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+          <strong>URL activa en este momento:</strong> <code class="font-mono bg-slate-100 px-1 py-0.5 rounded text-slate-800">{{ waha_url }}</code>
+        </p>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-sky-50/70 border border-sky-200 text-xs text-sky-900 space-y-1.5">
+        <div class="flex items-center gap-1.5 font-bold text-sky-950">
+          <i data-lucide="info" class="w-4 h-4 text-sky-600"></i>
+          ¿Estás usando el sistema en la nube (Render)?
+        </div>
+        <p class="leading-relaxed text-sky-900/90 text-[11px]">
+          Dado que WhatsApp y Docker corren en tu computadora física, la nube (Render) necesita un puente seguro para poder enviar mensajes.
+        </p>
+        <ol class="list-decimal list-inside text-[11px] space-y-1 text-sky-950/80 font-medium pt-1">
+          <li>Ejecuta en tu computadora el archivo <code class="bg-white/80 px-1 py-0.5 rounded border border-sky-300 font-mono text-sky-950">conectar_whatsapp_con_render.bat</code>.</li>
+          <li>Copia la dirección <code class="bg-white/80 px-1 py-0.5 rounded border border-sky-300 font-mono text-sky-950">https://...trycloudflare.com</code> que te muestra en pantalla.</li>
+          <li>Pégala en el campo de arriba y presiona <strong>"Guardar URL"</strong>. ¡Listo! Render responderá tus mensajes al instante.</li>
+        </ol>
+      </div>
+    </form>
+  </div>
+
   <!-- Escudo Anti-Baneo Activo -->
   <div class="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl p-6 text-white shadow-md">
     <div class="flex items-start gap-4">
