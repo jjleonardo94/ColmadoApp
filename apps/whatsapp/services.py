@@ -81,15 +81,30 @@ class WAHAService:
     @classmethod
     def resolve_lid_to_phone(cls, jid: str, session: str = None) -> str:
         """
-        Si el JID es un LID (@lid) de WhatsApp WebJS/Multi-device, consulta a la API de WAHA
+        Si el JID es un LID (@lid) o ID numérico de WhatsApp WebJS/Multi-device, consulta a la API de WAHA
         para obtener el JID telefónico real (@c.us) del contacto.
         """
-        if not jid or '@lid' not in jid:
+        if not jid:
             return jid
-        info = cls.get_contact_info(jid, session=session)
-        contact_id = info.get('id', '')
-        if '@c.us' in contact_id:
-            return contact_id
+        candidates = []
+        if '@lid' in jid:
+            candidates.append(jid)
+        elif '@c.us' not in jid:
+            # Puede ser un LID numérico puro (ej: 129545139183769)
+            candidates.append(f"{jid}@lid")
+            candidates.append(f"{jid}@c.us")
+        else:
+            # Tiene @c.us, pero si tiene 14+ dígitos podría ser un LID al que se le añadió @c.us por error
+            clean = jid.split('@')[0]
+            if len(clean) >= 14:
+                candidates.append(f"{clean}@lid")
+            candidates.append(jid)
+
+        for c_jid in candidates:
+            info = cls.get_contact_info(c_jid, session=session)
+            contact_id = info.get('id', '')
+            if '@c.us' in contact_id:
+                return contact_id
         return jid
 
     @classmethod
@@ -188,10 +203,21 @@ class WAHAService:
         """
         Despacha un mensaje a través de WAHA. Por defecto envía de forma inmediata (sub-segundo).
         Si simulate_typing es True, ejecuta la secuencia con un breve indicador de tipeo.
+        Resuelve automáticamente LIDs a números @c.us reales.
         """
-        clean_phone = WhatsAppService.normalize_phone(phone_number)
-        chat_id = f"{clean_phone}@c.us"
         s_name = session or cls.get_session()
+        clean_phone = WhatsAppService.normalize_phone(phone_number)
+
+        # Detección y resolución de LID
+        if '@lid' in phone_number or (clean_phone and len(clean_phone) >= 14):
+            resolved = cls.resolve_lid_to_phone(phone_number, session=s_name)
+            if resolved and '@c.us' in resolved:
+                chat_id = resolved
+                clean_phone = resolved.split('@')[0]
+            else:
+                chat_id = phone_number if '@' in phone_number else f"{clean_phone}@lid"
+        else:
+            chat_id = phone_number if '@' in phone_number else f"{clean_phone}@c.us"
 
         should_simulate = simulate_typing and getattr(settings, 'WAHA_SIMULATE_TYPING', False)
         is_testing = getattr(settings, 'TESTING', False) or 'test' in sys.argv
@@ -213,6 +239,26 @@ class WAHAService:
 
         try:
             resp = requests.post(url, json=payload, headers=cls.get_headers(), timeout=5)
+
+            # Reintento inteligente si WAHA devuelve "No LID for user"
+            if resp.status_code != 200 and resp.content and "No LID for user" in resp.text:
+                logger.warning("WAHA devolvió 'No LID for user' para %s. Intentando resolver contacto...", chat_id)
+                alt_jid = cls.resolve_lid_to_phone(f"{clean_phone}@lid", session=s_name)
+                if alt_jid and alt_jid != chat_id:
+                    retry_payload = {
+                        "session": s_name,
+                        "chatId": alt_jid,
+                        "text": text
+                    }
+                    try:
+                        retry_resp = requests.post(url, json=retry_payload, headers=cls.get_headers(), timeout=5)
+                        if retry_resp.status_code in [200, 201]:
+                            resp = retry_resp
+                            chat_id = alt_jid
+                            clean_phone = alt_jid.split('@')[0]
+                    except Exception as retry_err:
+                        logger.debug("Error en reintento WAHA: %s", retry_err)
+
             data = resp.json() if resp.content else {}
             if resp.status_code in [200, 201]:
                 raw_id = data.get('id', '')
@@ -224,6 +270,7 @@ class WAHAService:
                 return {
                     'success': True,
                     'message_id': msg_id,
+                    'resolved_phone': clean_phone,
                     'data': data
                 }
             else:
@@ -811,11 +858,11 @@ class WhatsAppService:
             sent_by=user,
         )
 
-        waha_url = getattr(settings, 'WAHA_API_URL', '')
         meta_token = getattr(settings, 'WHATSAPP_ACCESS_TOKEN', '')
         meta_phone_id = getattr(settings, 'WHATSAPP_PHONE_NUMBER_ID', '')
 
         # 1. Intentar envío con WAHA
+        waha_url = WAHAService.get_api_url()
         if waha_url:
             waha_res = WAHAService.send_text_message(
                 phone_number=clean_phone,
@@ -823,6 +870,20 @@ class WhatsAppService:
                 simulate_typing=simulate_typing
             )
             if waha_res.get('success'):
+                # Si el contacto tenía un LID temporal, actualizar al número telefónico real resuelto
+                resolved_p = waha_res.get('resolved_phone')
+                if resolved_p and conversation and conversation.contact:
+                    if resolved_p != conversation.contact.phone and len(resolved_p) < 14:
+                        conversation.contact.phone = resolved_p
+                        matched_c = Customer.objects.filter(phone__icontains=resolved_p[-8:]).first()
+                        if matched_c:
+                            conversation.contact.customer = matched_c
+                            conversation.contact.display_name = matched_c.name
+                            conversation.contact.is_verified = True
+                            conversation.contact.save(update_fields=['phone', 'customer', 'display_name', 'is_verified'])
+                        else:
+                            conversation.contact.save(update_fields=['phone'])
+
                 raw_wamid = waha_res.get('message_id') or f"waha_{int(time.time()*1000)}"
                 if isinstance(raw_wamid, dict):
                     raw_wamid = raw_wamid.get('_serialized') or raw_wamid.get('id') or str(raw_wamid)
