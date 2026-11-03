@@ -34,12 +34,19 @@ class POSView(LoginRequiredMixin, View):
 
         is_old_shift = False
         shift_age_hours = 0
-        if active_shift:
-            from django.utils import timezone
-            age_td = timezone.now() - active_shift.opened_at
-            shift_age_hours = int(age_td.total_seconds() // 3600)
-            if age_td.total_seconds() > 24 * 3600 or active_shift.opened_at.date() < timezone.localdate():
-                is_old_shift = True
+        if active_shift and getattr(active_shift, 'opened_at', None):
+            try:
+                from django.utils import timezone
+                opened = active_shift.opened_at
+                if timezone.is_naive(opened):
+                    opened = timezone.make_aware(opened)
+                now = timezone.now()
+                age_td = now - opened
+                shift_age_hours = max(0, int(age_td.total_seconds() // 3600))
+                if age_td.total_seconds() > 24 * 3600 or timezone.localtime(opened).date() < timezone.localdate():
+                    is_old_shift = True
+            except Exception:
+                is_old_shift = False
 
         categories = Category.objects.filter(is_active=True).prefetch_related('products')
         cust_qs = Customer.objects.filter(is_active=True)

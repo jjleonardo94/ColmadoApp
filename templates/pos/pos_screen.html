@@ -55,7 +55,7 @@
         <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
         <span>Atención: El turno de caja actual fue abierto el {{ active_shift.opened_at|date:"d/m/Y h:i A" }} (hace más de 24 horas). Se recomienda realizar el arqueo y cierre de caja diario.</span>
     </div>
-    <a href="{% url 'cash_shift_close' active_shift.id %}" class="bg-white text-amber-900 px-3 py-1 rounded-lg font-bold hover:bg-amber-50 transition shadow-2xs whitespace-nowrap ml-2">
+    <a href="{% url 'cash_close_shift' active_shift.id %}" class="bg-white text-amber-900 px-3 py-1 rounded-lg font-bold hover:bg-amber-50 transition shadow-2xs whitespace-nowrap ml-2">
         Cerrar Caja
     </a>
 </div>
