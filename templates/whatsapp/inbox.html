@@ -7,14 +7,14 @@
 <div class="h-[calc(100vh-76px)] sm:h-[calc(100vh-96px)] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
 
   <!-- Header Superior de la Bandeja -->
-  <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+  <div class="px-4 sm:px-5 py-3 sm:py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+      <div class="w-10 h-10 rounded-full shrink-0 aspect-square bg-emerald-600 text-white flex items-center justify-center shadow-xs">
         <i data-lucide="message-circle" class="w-5 h-5"></i>
       </div>
       <div>
-        <h1 class="font-bold text-slate-900 text-base leading-tight">WhatsApp Business & Pedidos</h1>
-        <p class="text-xs text-slate-500">Recepción de pedidos, ventas de contado, créditos, abonos y delivery</p>
+        <h1 class="font-bold text-slate-900 text-sm sm:text-base leading-tight">WhatsApp Business & Pedidos</h1>
+        <p class="text-[11px] sm:text-xs text-slate-500">Recepción de pedidos, ventas de contado, créditos, abonos y delivery</p>
       </div>
     </div>
 
@@ -30,7 +30,7 @@
   <div class="flex-1 flex min-h-0 overflow-hidden">
 
     <!-- Columna Izquierda: Lista de Conversaciones -->
-    <div class="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-white shrink-0 {% if selected_conv %}hidden md:flex{% endif %}">
+    <div id="conversationsListView" class="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-white shrink-0 {% if has_explicit_chat %}hidden md:flex{% endif %}">
       <!-- Buscador y Filtro -->
       <div class="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
         <form id="contactSearchForm" method="get" class="relative flex items-center">
@@ -106,14 +106,15 @@
     </div>
 
     <!-- Columna Derecha: Ventana de Conversación Activa -->
-    <div class="flex-1 flex flex-col bg-slate-100 min-h-0 relative {% if not selected_conv %}hidden md:flex{% endif %}">
+    <div id="activeChatView" class="flex-1 flex flex-col bg-slate-100 min-h-0 relative {% if not has_explicit_chat %}hidden md:flex{% endif %}">
       {% if selected_conv %}
       <!-- Cabecera del Chat Activo -->
       <div class="p-3 sm:p-3.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
         <div class="flex items-center gap-2 sm:gap-3 min-w-0">
           <!-- Botón Volver a la lista de chats en móviles -->
-          <a href="{% url 'whatsapp_inbox' %}" class="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 flex items-center justify-center shrink-0 transition-colors" title="Volver a los chats">
-            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+          <a href="{% url 'whatsapp_inbox' %}" onclick="showMobileConversationsList(event)" class="md:hidden px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-1.5 shrink-0 transition-colors shadow-2xs" title="Ver todos los chats">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Chats</span>
           </a>
           <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs sm:text-sm shadow-xs shrink-0">
             {{ selected_conv.contact.display_name|first|default:"C" }}
@@ -2595,6 +2596,40 @@
     const counter = document.getElementById('activeChatsCounter');
     if (counter) counter.innerText = visibleCount + ' chats';
   }
+
+  function showMobileConversationsList(e) {
+    if (window.innerWidth < 768) {
+      const listCol = document.getElementById('conversationsListView');
+      const chatCol = document.getElementById('activeChatView');
+      if (listCol && chatCol) {
+        if (e) e.preventDefault();
+        chatCol.classList.add('hidden');
+        listCol.classList.remove('hidden');
+        window.history.pushState({ view: 'list' }, '', "{% url 'whatsapp_inbox' %}");
+        if (window.lucide) lucide.createIcons();
+        const searchInput = document.getElementById('contactSearchInput');
+        if (searchInput) searchInput.focus();
+        return false;
+      }
+    }
+  }
+
+  window.addEventListener('popstate', (e) => {
+    if (window.innerWidth < 768) {
+      const url = new URL(window.location.href);
+      const listCol = document.getElementById('conversationsListView');
+      const chatCol = document.getElementById('activeChatView');
+      if (listCol && chatCol) {
+        if (!url.searchParams.has('chat')) {
+          chatCol.classList.add('hidden');
+          listCol.classList.remove('hidden');
+        } else {
+          listCol.classList.add('hidden');
+          chatCol.classList.remove('hidden');
+        }
+      }
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('contactSearchInput');

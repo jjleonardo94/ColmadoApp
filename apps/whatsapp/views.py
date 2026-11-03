@@ -96,8 +96,11 @@ class WhatsAppInboxView(LoginRequiredMixin, View):
 
         selected_id = request.GET.get('chat')
         selected_conv = None
+        has_explicit_chat = False
         if selected_id:
             selected_conv = WhatsAppConversation.objects.filter(id=selected_id).select_related('contact__customer').first()
+            if selected_conv:
+                has_explicit_chat = True
         elif conversations.exists():
             selected_conv = conversations.first()
 
@@ -120,6 +123,7 @@ class WhatsAppInboxView(LoginRequiredMixin, View):
         return render(request, 'whatsapp/inbox.html', {
             'conversations': conversations,
             'selected_conv': selected_conv,
+            'has_explicit_chat': has_explicit_chat,
             'messages_list': messages_list,
             'search_query': q,
             'status_filter': status_filter,
