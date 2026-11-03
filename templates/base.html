@@ -63,39 +63,41 @@
             transform: translateY(-3px);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
         }
-        /* Collapsed sidebar styling */
-        .sidebar-collapsed #sidebar {
-            width: 4.5rem !important;
-        }
-        .sidebar-collapsed .sidebar-text,
-        .sidebar-collapsed .sidebar-heading,
-        .sidebar-collapsed .sidebar-profile-text {
-            display: none !important;
-        }
-        .sidebar-collapsed .sidebar-link {
-            justify-content: center !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-        }
-        .sidebar-collapsed .sidebar-header-box {
-            padding-left: 0.75rem !important;
-            padding-right: 0.75rem !important;
-            justify-content: center !important;
-        }
-        .sidebar-collapsed .sidebar-footer-box {
-            justify-content: center !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-        }
-        /* Ajuste pro para badge en sidebar colapsado */
-        .sidebar-collapsed #sidebarWhatsAppBadge {
-            display: none !important;
-        }
-        .sidebar-collapsed #sidebarWhatsAppBadgeCollapsed.has-unread {
-            display: inline-flex !important;
-        }
-        body:not(.sidebar-collapsed) #sidebarWhatsAppBadgeCollapsed {
-            display: none !important;
+        /* Collapsed sidebar styling (Solo aplica en desktop >= 1024px) */
+        @media (min-width: 1024px) {
+            .sidebar-collapsed #sidebar {
+                width: 4.5rem !important;
+            }
+            .sidebar-collapsed .sidebar-text,
+            .sidebar-collapsed .sidebar-heading,
+            .sidebar-collapsed .sidebar-profile-text {
+                display: none !important;
+            }
+            .sidebar-collapsed .sidebar-link {
+                justify-content: center !important;
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+            .sidebar-collapsed .sidebar-header-box {
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
+                justify-content: center !important;
+            }
+            .sidebar-collapsed .sidebar-footer-box {
+                justify-content: center !important;
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+            /* Ajuste pro para badge en sidebar colapsado */
+            .sidebar-collapsed #sidebarWhatsAppBadge {
+                display: none !important;
+            }
+            .sidebar-collapsed #sidebarWhatsAppBadgeCollapsed.has-unread {
+                display: inline-flex !important;
+            }
+            body:not(.sidebar-collapsed) #sidebarWhatsAppBadgeCollapsed {
+                display: none !important;
+            }
         }
         .badge-centered {
             display: inline-flex;
@@ -175,8 +177,11 @@
 <body class="text-slate-800 antialiased flex h-screen overflow-hidden bg-slate-50">
 
     {% if user.is_authenticated %}
-    <!-- SIDEBAR -->
-    <aside id="sidebar" class="no-print relative w-64 bg-white border-r border-slate-200 flex flex-col justify-between transition-all duration-200 z-30 shrink-0">
+    <!-- BACKDROP PARA SIDEBAR MÓVIL (< lg) -->
+    <div id="sidebarBackdrop" onclick="closeMobileSidebar()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 hidden lg:hidden transition-opacity"></div>
+
+    <!-- SIDEBAR OFF-CANVAS RESPONSIVO -->
+    <aside id="sidebar" class="no-print fixed lg:static inset-y-0 left-0 z-50 lg:z-30 w-72 lg:w-64 max-w-[85vw] bg-white border-r border-slate-200 flex flex-col justify-between transition-transform lg:transition-all duration-300 ease-in-out -translate-x-full lg:translate-x-0 shrink-0 shadow-2xl lg:shadow-none">
         <!-- Botón Circular Flotante para Contraer/Expandir menú (Centrado en la línea divisoria, integrado con la paleta de la app) -->
         <button id="sidebarToggleBtn" type="button" title="Contraer menú" class="hidden md:flex absolute -right-3.5 top-[18px] z-40 w-7 h-7 rounded-full bg-white text-slate-500 hover:text-orange-600 hover:bg-orange-50 items-center justify-center shadow-sm hover:shadow border border-slate-200 hover:border-orange-200 transition-all duration-150 hover:scale-110 focus:outline-none cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m15 18-6-6 6-6"/></svg>
@@ -184,13 +189,19 @@
 
         <div>
             <!-- Header / Logo -->
-            <div class="h-16 flex items-center px-4 border-b border-slate-100 sidebar-header-box gap-3">
-                <div class="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold text-xl shadow-sm shrink-0">
-                    C
+            <div class="h-16 flex items-center justify-between px-4 border-b border-slate-100 sidebar-header-box">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold text-xl shadow-sm shrink-0">
+                        C
+                    </div>
+                    <div class="sidebar-text overflow-hidden">
+                        <h1 class="font-bold text-slate-900 text-base leading-tight tracking-tight truncate">ColmadoApp</h1>
+                    </div>
                 </div>
-                <div class="sidebar-text overflow-hidden">
-                    <h1 class="font-bold text-slate-900 text-base leading-tight tracking-tight truncate">ColmadoApp</h1>
-                </div>
+                <!-- Botón cerrar drawer en móvil -->
+                <button type="button" onclick="closeMobileSidebar()" class="lg:hidden p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Cerrar menú">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
 
             <!-- Navigation Links -->
@@ -422,9 +433,10 @@
                 </button>
 
                 <!-- Quick POS button -->
-                <a href="{% url 'pos' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition-all hover:shadow">
-                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                    <span>Nueva Venta</span>
+                <a href="{% url 'pos' %}" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 sm:gap-2 shadow-sm transition-all hover:shadow shrink-0">
+                    <i data-lucide="plus-circle" class="w-4 h-4 shrink-0"></i>
+                    <span class="hidden sm:inline">Nueva Venta</span>
+                    <span class="sm:hidden font-bold">POS</span>
                 </a>
             </div>
         </header>
@@ -469,7 +481,7 @@
 
     <!-- BOTÓN FLOTANTE DELIVERY EXPRESS (ARRASTRABLE Y REPOSICIONABLE) -->
     {% if user.is_authenticated %}
-    <div id="floatingDeliveryWrapper" style="position: fixed; bottom: 110px; right: 24px; z-index: 45; {% if request.resolver_match.url_name == 'pos' %}display: none !important;{% endif %}" class="no-print select-none touch-none">
+    <div id="floatingDeliveryWrapper" style="position: fixed; bottom: 110px; right: 24px; z-index: 45; {% if request.resolver_match.url_name == 'pos' %}display: none !important;{% endif %}" class="hidden md:block no-print select-none touch-none">
         <button type="button" id="floatingDeliveryBtn" title="Delivery Express (Clic para abrir / Mantén presionado para mover)" class="relative w-14 h-14 rounded-full shadow-2xl hover:shadow-amber-500/40 transition-shadow flex items-center justify-center p-0 cursor-grab active:cursor-grabbing border-2 border-white hover:scale-105 active:scale-95 transition-transform bg-amber-500 overflow-visible focus:outline-none group">
             <img src="{% static 'img/delivery_logo.png' %}?v=2" alt="Delivery Express" class="w-full h-full object-cover pointer-events-none select-none rounded-full" />
             <span id="floatingDeliveryBadge" class="hidden absolute -top-1 -right-1 px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-xs shadow-md border-2 border-white animate-pulse z-50">0</span>
@@ -750,14 +762,49 @@
             }, 3500);
         });
 
-        // Mobile drawer toggle
+        // Mobile drawer off-canvas open/close
+        window.openMobileSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (sidebar) {
+                sidebar.classList.remove('-translate-x-full');
+                sidebar.classList.add('translate-x-0');
+            }
+            if (backdrop) {
+                backdrop.classList.remove('hidden');
+            }
+            document.body.classList.add('overflow-hidden');
+        };
+
+        window.closeMobileSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (sidebar) {
+                sidebar.classList.add('-translate-x-full');
+                sidebar.classList.remove('translate-x-0');
+            }
+            if (backdrop) {
+                backdrop.classList.add('hidden');
+            }
+            document.body.classList.remove('overflow-hidden');
+        };
+
         const mobileBtn = document.getElementById('mobileMenuBtn');
-        const sidebar = document.getElementById('sidebar');
-        if (mobileBtn && sidebar) {
-            mobileBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('hidden');
+        if (mobileBtn) {
+            mobileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.openMobileSidebar();
             });
         }
+
+        // Auto-cerrar drawer al navegar en móvil
+        document.querySelectorAll('#sidebar .sidebar-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 1024) {
+                    window.closeMobileSidebar();
+                }
+            });
+        });
 
         // Sidebar collapse / expand with localStorage persistence
         const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
@@ -914,6 +961,14 @@
                             wrapper.style.top = 'auto';
                             return;
                         } else if (pos && typeof pos.left === 'number' && typeof pos.top === 'number') {
+                            if (pos.top < 90 && pos.left < 200) {
+                                localStorage.removeItem('colmadopos_delivery_btn_pos');
+                                wrapper.style.bottom = '110px';
+                                wrapper.style.right = '24px';
+                                wrapper.style.left = 'auto';
+                                wrapper.style.top = 'auto';
+                                return;
+                            }
                             const maxL = Math.max(16, window.innerWidth - 70);
                             const maxT = Math.max(16, window.innerHeight - 70);
                             const safeL = Math.min(Math.max(16, pos.left), maxL);

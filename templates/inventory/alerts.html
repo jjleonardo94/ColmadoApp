@@ -25,6 +25,7 @@
             </h3>
             <span class="text-xs font-bold text-rose-700">{{ out_of_stock|length }} artículos</span>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
             <thead>
                 <tr class="bg-slate-50 border-b text-slate-500 uppercase font-semibold">
@@ -53,6 +54,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 
     <!-- 2. Productos en Stock Mínimo -->
@@ -64,6 +66,7 @@
             </h3>
             <span class="text-xs font-bold text-amber-700">{{ low_stock|length }} artículos</span>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
             <thead>
                 <tr class="bg-slate-50 border-b text-slate-500 uppercase font-semibold">
@@ -92,6 +95,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

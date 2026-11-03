@@ -60,10 +60,23 @@
     </a>
 </div>
 {% endif %}
+<!-- Mobile Switcher Tabs (Solo visible en pantallas < lg) -->
+<div class="lg:hidden flex items-center bg-slate-200/90 p-1 rounded-xl mb-3 shrink-0">
+    <button type="button" id="tabBtnCatalog" onclick="switchMobilePosTab('catalog')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-800 bg-white shadow-xs flex items-center justify-center gap-1.5">
+        <i data-lucide="grid" class="w-4 h-4"></i>
+        <span>Catálogo</span>
+    </button>
+    <button type="button" id="tabBtnCart" onclick="switchMobilePosTab('cart')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5">
+        <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+        <span>Ticket Actual</span>
+        <span id="tabCartBadge" class="hidden min-w-[18px] h-[18px] px-1 rounded-full bg-orange-600 text-white text-[10px] font-black items-center justify-center">0</span>
+    </button>
+</div>
+
 <div class="h-[calc(100vh-5rem)] flex flex-col lg:flex-row gap-4 max-w-[1600px] mx-auto overflow-hidden">
 
     <!-- LEFT COLUMN: PRODUCT SEARCH & CATALOG -->
-    <div class="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-w-0">
+    <div id="posCatalogCol" class="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-w-0 relative">
         <!-- Top Toolbar: Search and Category chips -->
         <div class="p-4 border-b border-slate-100 space-y-3 bg-white">
             <!-- Search Bar with Scanner Support -->
@@ -143,10 +156,32 @@
                 {% endfor %}
             </div>
         </div>
+
+        <!-- Floating Mobile Cart Bar when viewing Catalog (Visible on < lg when items in cart) -->
+        <div id="posMobileCartBar" onclick="switchMobilePosTab('cart')" class="hidden lg:hidden fixed bottom-4 left-4 right-4 z-40 bg-orange-600 hover:bg-orange-700 text-white p-3.5 rounded-2xl shadow-xl flex items-center justify-between cursor-pointer transition-all transform active:scale-[0.98]">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-orange-700/80 flex items-center justify-center font-black text-xs shrink-0">
+                    <span id="posMobileCartCount">0</span>
+                </div>
+                <div class="text-left">
+                    <p class="text-xs font-bold leading-tight">Ver Ticket Actual</p>
+                    <p class="text-[10px] text-orange-100 font-medium" id="posMobileCartSubtext">0 productos</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="posMobileCartTotal" class="text-base font-black">RD$ 0.00</span>
+                <i data-lucide="arrow-right" class="w-5 h-5 shrink-0"></i>
+            </div>
+        </div>
     </div>
 
     <!-- RIGHT COLUMN: CART & CHECKOUT -->
-    <div class="w-full lg:w-96 xl:w-[420px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden shrink-0">
+    <div id="posCartCol" class="hidden lg:flex w-full lg:w-96 xl:w-[420px] flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden shrink-0">
+        <!-- Botón Volver al Catálogo (Visible sólo en pantallas móviles < lg) -->
+        <button type="button" onclick="switchMobilePosTab('catalog')" class="lg:hidden mx-4 mt-3 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition shrink-0">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>← Seguir agregando productos</span>
+        </button>
         <!-- Cart Header & Customer Selector -->
         <div class="p-4 border-b border-slate-100 space-y-3 bg-slate-50/60">
             <div class="flex items-center justify-between">
@@ -1099,6 +1134,7 @@
             document.getElementById('cartTotal').innerText = 'RD$ 0.00';
             document.getElementById('cartTotalUSD').innerText = 'US$ 0.00';
             if (btnCheckout) btnCheckout.disabled = true;
+            updateMobileCartBar();
             return;
         }
 
@@ -1150,6 +1186,88 @@
         document.getElementById('cartTotalUSD').innerText = 'US$ ' + totalUSD.toFixed(2);
         if (btnCheckout) btnCheckout.disabled = false;
         lucide.createIcons();
+        updateMobileCartBar();
+    }
+
+    // ==========================================
+    // MOBILE TAB & VIEW SWITCHER (POS RESPONSIVE)
+    // ==========================================
+    let currentMobilePosTab = 'catalog';
+
+    function switchMobilePosTab(tab) {
+        currentMobilePosTab = tab;
+        const catCol = document.getElementById('posCatalogCol');
+        const cartCol = document.getElementById('posCartCol');
+        const tabBtnCat = document.getElementById('tabBtnCatalog');
+        const tabBtnCart = document.getElementById('tabBtnCart');
+
+        if (tab === 'cart') {
+            if (catCol) {
+                catCol.classList.add('hidden');
+                catCol.classList.remove('flex');
+            }
+            if (cartCol) {
+                cartCol.classList.remove('hidden');
+                cartCol.classList.add('flex');
+            }
+            if (tabBtnCat) {
+                tabBtnCat.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5';
+            }
+            if (tabBtnCart) {
+                tabBtnCart.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-800 bg-white shadow-xs flex items-center justify-center gap-1.5';
+            }
+        } else {
+            if (catCol) {
+                catCol.classList.remove('hidden');
+                catCol.classList.add('flex');
+            }
+            if (cartCol) {
+                cartCol.classList.add('hidden');
+                cartCol.classList.remove('flex');
+            }
+            if (tabBtnCat) {
+                tabBtnCat.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-800 bg-white shadow-xs flex items-center justify-center gap-1.5';
+            }
+            if (tabBtnCart) {
+                tabBtnCart.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5';
+            }
+        }
+        updateMobileCartBar();
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function updateMobileCartBar() {
+        const bar = document.getElementById('posMobileCartBar');
+        const countEl = document.getElementById('posMobileCartCount');
+        const subtextEl = document.getElementById('posMobileCartSubtext');
+        const totalEl = document.getElementById('posMobileCartTotal');
+        const badgeEl = document.getElementById('tabCartBadge');
+
+        let totalItems = 0;
+        cart.forEach(item => { totalItems += item.quantity; });
+        const formattedTotal = 'RD$ ' + getCartTotal().toLocaleString('es-DO', {minimumFractionDigits: 2});
+
+        if (badgeEl) {
+            if (cart.length > 0) {
+                badgeEl.innerText = cart.length;
+                badgeEl.classList.remove('hidden');
+                badgeEl.classList.add('inline-flex');
+            } else {
+                badgeEl.classList.add('hidden');
+                badgeEl.classList.remove('inline-flex');
+            }
+        }
+
+        if (!bar) return;
+
+        if (cart.length > 0 && currentMobilePosTab === 'catalog') {
+            if (countEl) countEl.innerText = cart.length;
+            if (subtextEl) subtextEl.innerText = `${cart.length} artículo${cart.length === 1 ? '' : 's'} (${totalItems.toLocaleString()} und)`;
+            if (totalEl) totalEl.innerText = formattedTotal;
+            bar.classList.remove('hidden');
+        } else {
+            bar.classList.add('hidden');
+        }
     }
 
     function getCartTotal() {
